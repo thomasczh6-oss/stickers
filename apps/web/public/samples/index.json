@@ -1,7 +1,7 @@
 [
   {
     "slug": "corgi",
-    "title": "Corgi",
+    "title": "Biscuit",
     "style": "cartoon",
     "stickers": [
       "01.webp",
@@ -10,7 +10,8 @@
       "04.webp",
       "05.webp",
       "06.webp"
-    ]
+    ],
+    "blurb": "“a chubby corgi wearing a red bandana”"
   },
   {
     "slug": "girl",
@@ -23,12 +24,70 @@
       "04.webp",
       "05.webp",
       "06.webp"
-    ]
+    ],
+    "blurb": "“a young woman with a teal bob, round glasses and a yellow hoodie”"
   },
   {
     "slug": "cat",
     "title": "Mochi",
     "style": "3d",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ],
+    "blurb": "“a fluffy orange cat in a tiny yellow raincoat”"
+  },
+  {
+    "slug": "knight",
+    "title": "Sir Pixel",
+    "style": "pixel",
+    "blurb": "“a tiny brave knight with a red plume”",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
+  },
+  {
+    "slug": "sloth",
+    "title": "Slowmo",
+    "style": "clay",
+    "blurb": "“a sleepy sloth hugging a coffee mug”",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
+  },
+  {
+    "slug": "leo",
+    "title": "Leo",
+    "style": "cartoon",
+    "blurb": "“a guy with a beard and a red flannel shirt”",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
+  },
+  {
+    "slug": "grandma",
+    "title": "Nana",
+    "style": "3d",
+    "blurb": "“a sweet grandma with silver curls and a pink cardigan”",
     "stickers": [
       "01.webp",
       "02.webp",

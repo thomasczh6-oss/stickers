@@ -8,6 +8,9 @@ const sticker = (slug: string, i: number) => {
   return `/samples/${pack.slug}/${pack.stickers[i % pack.stickers.length]}`;
 };
 
+/** Two stickers from each pack, interleaved so neighbours come from different packs and styles. */
+const WALL = [0, 1].flatMap((i) => samples.map((p) => `/samples/${p.slug}/${p.stickers[(i * 3) % p.stickers.length]}`));
+
 const STEPS = [
   {
     title: "Snap or describe",
@@ -17,7 +20,7 @@ const STEPS = [
   {
     title: "Pick your vibe",
     body: "Choose a style and the reactions you actually send: LOL, love you, OMG, facepalm…",
-    img: sticker("cat", 1),
+    img: sticker("knight", 1),
   },
   {
     title: "Add to WhatsApp",
@@ -90,6 +93,19 @@ export default function Home() {
         <HeroPhone />
       </section>
 
+      {/* Sticker wall: a few stickers from every sample pack, all styles mixed */}
+      <section aria-label="Stickers made with Stickers AI" className="-mx-5 overflow-hidden border-y border-line bg-card py-6 [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)]">
+        <div className="flex w-max animate-marquee gap-4 hover:[animation-play-state:paused]">
+          {[0, 1].map((copy) => (
+            <div key={copy} className="flex gap-4" aria-hidden={copy === 1}>
+              {WALL.map((src) => (
+                <img key={`${copy}-${src}`} src={src} alt="" width={112} height={112} className="size-28 shrink-0" loading="lazy" />
+              ))}
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* How it works */}
       <section id="how" className="scroll-mt-24 py-16">
         <SectionTitle eyebrow="How it works" title="Three taps from selfie to sticker" />
@@ -109,7 +125,7 @@ export default function Home() {
 
       {/* Examples */}
       <section id="examples" className="scroll-mt-24 py-16">
-        <SectionTitle eyebrow="Examples" title="Every pack is one of a kind" body="Real packs made with Stickers AI. Each sticker loops, just like in your chats." />
+        <SectionTitle eyebrow="Examples" title="Every pack is one of a kind" body="Real packs made with Stickers AI, in every style. Each sticker loops, just like in your chats." />
         <ExampleGallery packs={samples} />
       </section>
 
@@ -150,7 +166,7 @@ export default function Home() {
       <section className="py-10">
         <div className="relative overflow-hidden rounded-[36px] bg-ink px-8 py-16 text-center text-white md:py-20">
           <img src={sticker("corgi", 0)} alt="" width={140} height={140} className="absolute -bottom-4 -left-4 hidden size-36 -rotate-12 md:block" />
-          <img src={sticker("cat", 4)} alt="" width={140} height={140} className="absolute -top-2 -right-2 hidden size-36 rotate-12 md:block" />
+          <img src={sticker("grandma", 0)} alt="" width={140} height={140} className="absolute -top-2 -right-2 hidden size-36 rotate-12 md:block" />
           <h2 className="mx-auto max-w-2xl font-display text-4xl font-extrabold tracking-[-0.02em] text-balance md:text-5xl">
             Your group chat deserves better stickers
           </h2>
@@ -216,7 +232,7 @@ function HeroPhone() {
             <Bubble>did you see my new stickers??</Bubble>
             <img src={sticker("girl", 1)} alt="" width={132} height={132} className="size-[132px]" />
             <Bubble me>wait that’s literally you 😂</Bubble>
-            <img src={sticker("corgi", 1)} alt="" width={132} height={132} className="size-[132px] self-end" />
+            <img src={sticker("leo", 1)} alt="" width={132} height={132} className="size-[132px] self-end" />
             <Bubble>made one of Biscuit too</Bubble>
             <img src={sticker("corgi", 2)} alt="" width={132} height={132} className="size-[132px]" />
           </div>

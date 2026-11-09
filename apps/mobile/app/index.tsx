@@ -9,9 +9,9 @@ import { tap } from "@/lib/haptics";
 import { C, F, shadow } from "@/lib/theme";
 
 const HERO = [
+  require("@/assets/images/samples/knight-01.webp"),
   require("@/assets/images/samples/corgi-01.webp"),
-  require("@/assets/images/samples/girl-02.webp"),
-  require("@/assets/images/samples/cat-01.webp"),
+  require("@/assets/images/samples/grandma-02.webp"),
 ];
 
 export default function Home() {
