@@ -1,0 +1,16 @@
+node_modules/
+.env
+.env.local
+data/
+dist/
+.next/
+.expo/
+apps/mobile/ios/
+apps/mobile/android/
+*.log
+.DS_Store
+.turbo/
+apps/server/out/
+next-env.d.ts
+*.tsbuildinfo
+expo-env.d.ts
