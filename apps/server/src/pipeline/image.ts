@@ -1,6 +1,7 @@
+import { fileURLToPath } from "node:url";
+import opentype from "opentype.js";
 import sharp from "sharp";
 import { WA } from "@stickers/shared";
-import { escapeXml } from "../providers/mock";
 
 /** Raw RGBA pixels. */
 export interface Rgba {
@@ -398,11 +399,31 @@ export async function addOutline(png: Buffer, radius = 8): Promise<Buffer> {
   return sharp(out, { raw: { width: w, height: h, channels: 4 } }).png().toBuffer();
 }
 
+let captionFont: opentype.Font | undefined;
+function loadCaptionFont(): opentype.Font {
+  // Lilita One (SIL Open Font License): chunky, rounded and readable at sticker size.
+  captionFont ??= opentype.loadSync(fileURLToPath(new URL("../../assets/fonts/LilitaOne-Regular.ttf", import.meta.url)));
+  return captionFont;
+}
+
+/**
+ * Prints a caption along the bottom: white letters with a thick dark outline, the classic
+ * sticker look. Text is turned into vector paths with the bundled font, so it renders the
+ * same on every server whatever fonts are installed.
+ */
 async function addCaption(png: Buffer, text: string): Promise<Buffer> {
-  const size = text.length > 8 ? 52 : 68;
+  const font = loadCaptionFont();
+  const maxWidth = S - 60;
+  let size = 84;
+  const width = (sz: number) => font.getAdvanceWidth(text, sz);
+  while (size > 40 && width(size) > maxWidth) size -= 2;
+  const x = (S - width(size)) / 2;
+  const baseline = S - 30;
+  const d = font.getPath(text, x, baseline, size).toPathData(2);
+  const stroke = Math.round(size * 0.2);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}">
-    <text x="${S / 2}" y="${S - 34}" text-anchor="middle" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif"
-      font-weight="800" font-size="${size}" fill="#ffffff" stroke="#111111" stroke-width="10" stroke-linejoin="round"
-      paint-order="stroke">${escapeXml(text)}</text></svg>`;
+    <path d="${d}" transform="translate(0 5)" fill="#1a1325" fill-opacity="0.35" stroke="#1a1325" stroke-opacity="0.35" stroke-width="${stroke}" stroke-linejoin="round"/>
+    <path d="${d}" fill="#1a1325" stroke="#1a1325" stroke-width="${stroke}" stroke-linejoin="round"/>
+    <path d="${d}" fill="#ffffff"/></svg>`;
   return sharp(png).composite([{ input: Buffer.from(svg) }]).png().toBuffer();
 }

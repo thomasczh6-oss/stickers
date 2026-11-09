@@ -3,7 +3,7 @@
  * splash image, web favicon, the Open Graph card and the sample packs on the landing page.
  *
  *   pnpm --filter @stickers/server gen:assets                  # everything
- *   pnpm --filter @stickers/server gen:assets -- --only icons  # icons | samples | og
+ *   pnpm --filter @stickers/server gen:assets -- --only icons  # icons | samples | styles | og
  *   IMAGE_PROVIDER=mock pnpm --filter @stickers/server gen:assets   # offline placeholders
  *
  * The model only draws the mascot and the sample characters. Backgrounds, gradients and
@@ -13,9 +13,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import sharp, { type OverlayOptions } from "sharp";
-import type { ActionId, StyleId } from "@stickers/shared";
+import { STYLES, type ActionId, type StyleId } from "@stickers/shared";
 import { loadConfig } from "../src/config";
 import { generatePack } from "../src/pipeline/generatePack";
+import { characterPrompt } from "../src/pipeline/prompts";
 import { addOutline, alphaBounds, removeBackground } from "../src/pipeline/image";
 import { createImageProvider } from "../src/providers";
 import { LocalStorage } from "../src/storage/storage";
@@ -116,11 +117,33 @@ if (want("samples")) {
     await fs.mkdir(dest, { recursive: true });
     const src = path.join(WORK, "samples/packs", pack.id);
     for (const st of pack.stickers) await fs.copyFile(path.join(src, st.fileName), path.join(dest, st.fileName));
+    // The app's home screen shows a few samples offline.
+    await fs.mkdir(path.join(MOBILE, "samples"), { recursive: true });
+    for (const st of pack.stickers.slice(0, 2)) await fs.copyFile(path.join(src, st.fileName), path.join(MOBILE, "samples", `${s.slug}-${st.fileName}`));
     await fs.copyFile(path.join(src, "source/character.png"), path.join(WORK, `${s.slug}-character.png`));
     index.push({ slug: s.slug, title: s.title, style: s.style, stickers: pack.stickers.map((st) => st.fileName) });
   }
   await fs.writeFile(path.join(WEB_PUBLIC, "samples/index.json"), JSON.stringify(index, null, 2) + "\n");
   console.log("[assets] sample packs written");
+}
+
+if (want("styles")) {
+  // One subject drawn in every style, for the style picker on web and mobile.
+  const subject = "a cheerful young woman with curly auburn hair, freckles, a denim jacket and a white T-shirt, waving hello, chibi proportions with a big head and a small body, shown from the knees up";
+  const webDir = path.join(WEB_PUBLIC, "styles");
+  const appDir = path.join(MOBILE, "styles");
+  await fs.mkdir(webDir, { recursive: true });
+  await fs.mkdir(appDir, { recursive: true });
+  await Promise.all(
+    STYLES.map(async (style) => {
+      const raw = await provider.image({ prompt: characterPrompt({ style, description: subject, fromPhoto: false }), images: [], size: "1024x1024", intent: { kind: "character" } });
+      await fs.writeFile(path.join(WORK, `style-${style.id}-raw.png`), raw);
+      const tile = await fit(await cutout(raw), 512, 0.9, true);
+      await sharp(tile).resize(384, 384).webp({ quality: 82, alphaQuality: 90 }).toFile(path.join(webDir, `${style.id}.webp`));
+      await sharp(tile).resize(256, 256).png({ palette: true, quality: 90 }).toFile(path.join(appDir, `${style.id}.png`));
+      console.log(`[assets] style ${style.id}`);
+    }),
+  );
 }
 
 if (want("og")) {

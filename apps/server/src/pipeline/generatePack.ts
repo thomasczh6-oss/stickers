@@ -21,7 +21,9 @@ export interface GenerateInput {
 }
 
 /** Delay between frames of a sprite-sheet animation. 4 frames ping-ponged = 6 frames, about 0.7s per loop. */
-const FRAME_DELAY_MS = 120;
+/** Frame timing: the key pose holds a moment (it is also the still WhatsApp shows), the in-betweens move quickly. */
+const KEY_FRAME_MS = 420;
+const FRAME_MS = 100;
 const GEN_SIZE = "1024x1024";
 
 /**
@@ -66,7 +68,7 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
           deps.provider.image({
             prompt: spriteSheetPrompt({ style, action }),
             images: reference,
-            size: GEN_SIZE,
+            size: SHEET.size,
             intent: { kind: "spritesheet", label: action.label, columns: SHEET.columns, rows: SHEET.rows },
           }),
         );
@@ -75,7 +77,8 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
         const keyed = await Promise.all(cells.map((c) => removeBackground(c)));
         const frames = await composeFrames(keyed, { outline: true, caption, align: LEAVES_GROUND.has(action.id) ? "horizontal" : "feet" });
         firstFrame = frames[0]!;
-        file = await encodeAnimated(pingPong(frames), FRAME_DELAY_MS);
+        const seq = pingPong(frames);
+        file = await encodeAnimated(seq, seq.map((_, i) => (i === 0 ? KEY_FRAME_MS : FRAME_MS)));
       } else {
         const img = await withRetry(() =>
           deps.provider.image({ prompt: posePrompt({ style, action }), images: reference, size: GEN_SIZE, intent: { kind: "pose", label: action.label } }),
