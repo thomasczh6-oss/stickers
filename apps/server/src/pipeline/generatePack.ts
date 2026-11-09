@@ -73,7 +73,7 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
         await deps.storage.put(`${prefix}/source/${action.id}-sheet.png`, sheet, "image/png");
         const cells = await sliceGrid(sheet, SHEET.columns, SHEET.rows);
         const keyed = await Promise.all(cells.map((c) => removeBackground(c)));
-        const frames = await composeFrames(keyed, { outline: true, caption });
+        const frames = await composeFrames(keyed, { outline: true, caption, align: LEAVES_GROUND.has(action.id) ? "horizontal" : "feet" });
         firstFrame = frames[0]!;
         file = await encodeAnimated(pingPong(frames), FRAME_DELAY_MS);
       } else {
@@ -140,6 +140,9 @@ function defaultPackName(req: StoredRequest) {
   const short = base.length > 30 ? `${base.slice(0, 29).trimEnd()}…` : base;
   return short.charAt(0).toUpperCase() + short.slice(1);
 }
+
+/** Motions where the whole body moves up or down, so pinning the feet would erase it. */
+const LEAVES_GROUND = new Set<string>(["party", "shock"]);
 
 async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   let last: unknown;

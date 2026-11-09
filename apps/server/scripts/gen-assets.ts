@@ -43,7 +43,7 @@ const MASCOT_PROMPT = [
 
 const SAMPLES: { slug: string; title: string; style: StyleId; prompt: string; actions: ActionId[] }[] = [
   { slug: "corgi", title: "Corgi", style: "cartoon", prompt: "a chubby corgi wearing a red bandana", actions: ["wave", "laugh", "love", "thumbs_up", "party", "cool"] },
-  { slug: "girl", title: "Mia", style: "anime", prompt: "a young woman with a short teal bob haircut, round glasses and a yellow hoodie", actions: ["wave", "shock", "cry", "love", "sleepy", "think"] },
+  { slug: "girl", title: "Mia", style: "anime", prompt: "a chibi young woman with a big head and small body, short teal bob haircut, round glasses and a yellow hoodie, very expressive face", actions: ["wave", "shock", "cry", "love", "sleepy", "think"] },
   { slug: "cat", title: "Mochi", style: "3d", prompt: "a fluffy orange cat in a tiny yellow raincoat", actions: ["wave", "angry", "laugh", "facepalm", "party", "sleepy"] },
 ];
 

@@ -42,8 +42,8 @@ export interface Config {
 export function loadConfig(overrides: Partial<Config> = {}): Config {
   const dataDir = path.resolve(env("DATA_DIR", "./data")!);
   const port = int("PORT", 8787);
-  // Same variable names as the team's other gateway projects (mvbuddy); AI_GATEWAY_* also accepted.
-  const apiKey = env("GATEWAY_API_KEY", env("AI_GATEWAY_API_KEY"));
+  // Same variable names as the team's other gateway projects (mvbuddy); AI_GATEWAY_* and IMAGE_API_KEY also accepted.
+  const apiKey = env("GATEWAY_API_KEY", env("AI_GATEWAY_API_KEY", env("IMAGE_API_KEY")));
   const authInjected = env("GATEWAY_AUTH_INJECTED") === "1";
   const providerEnv = env("IMAGE_PROVIDER");
   const provider: ProviderName =

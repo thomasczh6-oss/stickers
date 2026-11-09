@@ -84,7 +84,46 @@ export async function removeBackground(input: Buffer | Rgba): Promise<Rgba> {
     }
     data[i + 3] = Math.round(a * data[i + 3]!);
   }
+  despillEdges(img, bg);
   return img;
+}
+
+/** How far (px) from the keyed area green spill is removed. Fluffy fur and hair need a few pixels. */
+const SPILL_RADIUS = 4;
+
+/**
+ * Light bounces off a green screen onto the character's edges (fur, hair), leaving a green
+ * fringe that survives keying. For pixels near the cut-out edge, cap the background's
+ * dominant channel at the stronger of the other two. Only runs when the background is
+ * clearly one primary colour, as the prompts ask.
+ */
+export function despillEdges({ data, width: w, height: h }: Rgba, bg: [number, number, number]): void {
+  const order = [0, 1, 2].sort((a, b) => bg[b]! - bg[a]!);
+  const c = order[0]!;
+  if (bg[c]! - bg[order[1]!]! < 80) return;
+  const [o1, o2] = [0, 1, 2].filter((k) => k !== c) as [number, number];
+
+  const near = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3]! >= 128) continue;
+      // Only transparent pixels touching the character seed the band.
+      const touches =
+        (x > 0 && data[(y * w + x - 1) * 4 + 3]! >= 128) ||
+        (x < w - 1 && data[(y * w + x + 1) * 4 + 3]! >= 128) ||
+        (y > 0 && data[((y - 1) * w + x) * 4 + 3]! >= 128) ||
+        (y < h - 1 && data[((y + 1) * w + x) * 4 + 3]! >= 128);
+      if (!touches) continue;
+      for (let yy = Math.max(0, y - SPILL_RADIUS); yy <= Math.min(h - 1, y + SPILL_RADIUS); yy++) {
+        for (let xx = Math.max(0, x - SPILL_RADIUS); xx <= Math.min(w - 1, x + SPILL_RADIUS); xx++) near[yy * w + xx] = 1;
+      }
+    }
+  }
+  for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+    if (!near[p] || data[i + 3] === 0) continue;
+    const cap = Math.max(data[i + o1]!, data[i + o2]!);
+    if (data[i + c]! > cap) data[i + c] = cap;
+  }
 }
 
 export async function toRgba(input: Buffer): Promise<Rgba> {
@@ -164,6 +203,63 @@ export interface ComposeOptions {
   outline?: boolean;
   /** Short text printed along the bottom (for example "LOL"). */
   caption?: string;
+  /**
+   * How frames are lined up before cropping. The model draws each sprite-sheet cell at a
+   * slightly different spot, which reads as jitter. "feet" pins the lower body in place
+   * (default); "horizontal" only fixes sideways drift, for motions that leave the ground.
+   */
+  align?: "feet" | "horizontal" | "none";
+}
+
+/**
+ * Anchor point of a keyed frame: the horizontal centre of the bottom band of the
+ * character (feet/base, which barely moves in most motions) and its lowest row.
+ */
+export function frameAnchor(f: Rgba, threshold = 24): { x: number; y: number } | undefined {
+  const b = alphaBounds(f, threshold);
+  if (!b) return undefined;
+  const bandTop = b.top + Math.floor(b.height * 0.8);
+  let sum = 0;
+  let n = 0;
+  for (let y = bandTop; y < b.top + b.height; y++) {
+    for (let x = b.left; x < b.left + b.width; x++) {
+      if (f.data[(y * f.width + x) * 4 + 3]! > threshold) {
+        sum += x;
+        n++;
+      }
+    }
+  }
+  return { x: n ? sum / n : b.left + b.width / 2, y: b.top + b.height };
+}
+
+/** Moves a frame's pixels by (dx, dy) on a canvas of the same size; uncovered pixels are transparent. */
+function shiftFrame(f: Rgba, dx: number, dy: number): Rgba {
+  if (dx === 0 && dy === 0) return f;
+  const { width: w, height: h } = f;
+  const data = Buffer.alloc(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const sy = y - dy;
+    if (sy < 0 || sy >= h) continue;
+    const x0 = Math.max(0, dx);
+    const x1 = Math.min(w, w + dx);
+    if (x1 <= x0) continue;
+    f.data.copy(data, (y * w + x0) * 4, (sy * w + x0 - dx) * 4, (sy * w + x1 - dx) * 4);
+  }
+  return { data, width: w, height: h };
+}
+
+/** Shifts frames so their anchors line up with the first frame's. */
+export function alignFrames(frames: Rgba[], mode: "feet" | "horizontal"): Rgba[] {
+  const anchors = frames.map((f) => frameAnchor(f));
+  const ref = anchors.find(Boolean);
+  if (!ref) return frames;
+  return frames.map((f, i) => {
+    const a = anchors[i];
+    if (!a) return f;
+    const dx = Math.round(ref.x - a.x);
+    const dy = mode === "feet" ? Math.round(ref.y - a.y) : 0;
+    return shiftFrame(f, dx, dy);
+  });
 }
 
 const S = WA.STICKER_SIZE;
@@ -172,8 +268,22 @@ const S = WA.STICKER_SIZE;
  * Places keyed frames on 512x512 transparent canvases. All frames share one crop box and
  * one scale so an animation does not jitter. Returns PNG buffers.
  */
+function cropRgba(f: Rgba, w: number, h: number): Rgba {
+  if (f.width === w && f.height === h) return f;
+  const data = Buffer.alloc(w * h * 4);
+  for (let y = 0; y < h; y++) f.data.copy(data, y * w * 4, y * f.width * 4, (y * f.width + w) * 4);
+  return { data, width: w, height: h };
+}
+
 export async function composeFrames(frames: Rgba[], opts: ComposeOptions = {}): Promise<Buffer[]> {
   if (frames.length === 0) throw new Error("no frames to compose");
+  const align = opts.align ?? "feet";
+  if (frames.length > 1 && align !== "none") {
+    // Frames from one sheet cell may differ in size by a pixel; crop to a common size first.
+    const cw = Math.min(...frames.map((f) => f.width));
+    const ch = Math.min(...frames.map((f) => f.height));
+    frames = alignFrames(frames.map((f) => cropRgba(f, cw, ch)), align);
+  }
   const w = Math.min(...frames.map((f) => f.width));
   const h = Math.min(...frames.map((f) => f.height));
   let box: { left: number; top: number; width: number; height: number } | undefined;

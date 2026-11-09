@@ -35,7 +35,7 @@ export type StyleId = (typeof STYLES)[number]["id"];
  * WhatsApp shows when the loop ends (first frame must say it all).
  */
 export const ACTIONS = [
-  { id: "wave", label: "Hi!", emojis: ["👋", "😊"], pose: "smiling and raising one hand to wave", motion: "waving the raised hand side to side" },
+  { id: "wave", label: "Hi!", emojis: ["👋", "😊"], pose: "smiling and raising one hand to wave", motion: "waving the same raised hand side to side, the other arm still" },
   { id: "laugh", label: "LOL", emojis: ["😂", "🤣"], pose: "laughing hard with eyes squeezed shut", motion: "shaking with laughter, tears of joy flying" },
   { id: "love", label: "Love you", emojis: ["😍", "❤️"], pose: "heart eyes, hugging a big red heart", motion: "the heart pulsing bigger and smaller" },
   { id: "thumbs_up", label: "OK!", emojis: ["👍", "👌"], pose: "confident grin giving a thumbs up", motion: "pumping the thumbs up forward" },

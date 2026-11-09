@@ -39,6 +39,7 @@ export function spriteSheetPrompt(opts: { style: Style; action: Action }): strin
     `Frame 1 (top left) is the key pose: ${opts.action.pose}.`,
     `The next frames continue the motion: ${opts.action.motion}. The last frame comes back close to frame 1 so the animation loops smoothly.`,
     "In every cell: the same camera, the same scale, the character centered with empty margin, nothing crossing the cell edges.",
+    "The character stays in the same spot and keeps the same pose in every cell; only the moving part changes. A raised hand or paw stays the same one (same side) in every frame; never mirror or flip the character.",
     "Keep the character's identity, proportions, colors and outfit identical in every frame.",
     `Art style: ${opts.style.prompt}.`,
     "The whole sheet shares one flat, solid, pure green background (#00FF00): no grid lines, no cell borders, no frame numbers, no text. The character itself must not contain any green.",

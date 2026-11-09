@@ -15,7 +15,13 @@ export class GatewayImageProvider implements ImageProvider {
 
   async image(req: ImageRequest): Promise<Buffer> {
     const res = req.images.length > 0 ? await this.edit(req) : await this.generate(req);
-    const text = await res.text();
+    let text: string;
+    try {
+      text = await res.text();
+    } catch (e) {
+      // The connection can drop while the (large) image body is still downloading.
+      throw new ProviderError(`gateway response was cut off: ${(e as Error).message}`, res.status, true);
+    }
     let data: { data?: { b64_json?: string; url?: string }[]; error?: { message?: string } | string; message?: string } = {};
     try {
       data = JSON.parse(text);

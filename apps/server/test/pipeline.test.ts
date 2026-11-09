@@ -7,7 +7,7 @@ import sharp from "sharp";
 import { WA } from "@stickers/shared";
 import { inspectSticker } from "../src/pipeline/encode";
 import { generatePack } from "../src/pipeline/generatePack";
-import { addOutline, removeBackground, toRgba } from "../src/pipeline/image";
+import { addOutline, alignFrames, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
 import { MockImageProvider } from "../src/providers/mock";
 import { LocalStorage } from "../src/storage/storage";
 
@@ -85,4 +85,17 @@ test("static pack: every sticker is a valid single-frame WebP under 100KB", asyn
     assert.deepEqual(await inspectSticker(file, false), [], s.fileName);
     assert.ok(file.length <= WA.STATIC_MAX_BYTES);
   }
+});
+
+test("alignFrames pins drifting frames to the first frame's feet", () => {
+  const box = (ox: number, oy: number) => {
+    const w = 100, h = 100, data = Buffer.alloc(w * h * 4);
+    for (let y = oy; y < oy + 30; y++) for (let x = ox; x < ox + 20; x++) data[(y * w + x) * 4 + 3] = 255;
+    return { data, width: w, height: h };
+  };
+  const [a, b] = alignFrames([box(10, 10), box(40, 50)], "feet");
+  assert.deepEqual(frameAnchor(b!), frameAnchor(a!));
+  const [, c] = alignFrames([box(10, 10), box(40, 50)], "horizontal");
+  assert.equal(frameAnchor(c!)!.x, frameAnchor(box(10, 10))!.x);
+  assert.equal(frameAnchor(c!)!.y, 80);
 });
