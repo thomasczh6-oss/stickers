@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #7c3aed;
+  --color-brand-2: #ec4899;
+  --color-accent: #facc15;
+  --font-sans: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #faf7ff;
+  color: #1f1235;
+}
+
+.checker {
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #f1ecf9 25%, transparent 25%), linear-gradient(-45deg, #f1ecf9 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f1ecf9 75%), linear-gradient(-45deg, transparent 75%, #f1ecf9 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}

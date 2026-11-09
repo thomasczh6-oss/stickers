@@ -1,0 +1,7 @@
+{
+  "name": "whatsapp-stickers",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Adds sticker packs to WhatsApp: a ContentProvider + intent on Android, the pasteboard hand-off on iOS.",
+  "main": "index.ts"
+}

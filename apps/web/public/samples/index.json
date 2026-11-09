@@ -1,0 +1,41 @@
+[
+  {
+    "slug": "corgi",
+    "title": "Corgi",
+    "style": "cartoon",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
+  },
+  {
+    "slug": "girl",
+    "title": "Mia",
+    "style": "anime",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
+  },
+  {
+    "slug": "cat",
+    "title": "Mochi",
+    "style": "3d",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
+  }
+]

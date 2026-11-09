@@ -1,0 +1,30 @@
+{
+  "name": "@stickers/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "start": "tsx --env-file-if-exists=.env src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "smoke:gateway": "tsx --env-file-if-exists=.env scripts/smoke-gateway.ts",
+    "gen:assets": "tsx --env-file-if-exists=.env scripts/gen-assets.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1164.0",
+    "@electric-sql/pglite": "0.5.15",
+    "@hono/node-server": "2.1.6",
+    "@stickers/shared": "workspace:*",
+    "hono": "4.13.17",
+    "nanoid": "5.1.6",
+    "pg": "8.23.1",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/pg": "8.15.6",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}
