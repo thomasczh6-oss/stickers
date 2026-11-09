@@ -1,0 +1,15 @@
+{
+  "name": "stickers",
+  "private": true,
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "dev:server": "pnpm --filter @stickers/server dev",
+    "dev:web": "pnpm --filter @stickers/web dev",
+    "dev:mobile": "pnpm --filter @stickers/mobile start",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "build:web": "pnpm --filter @stickers/web build",
+    "smoke": "pnpm --filter @stickers/server smoke:gateway",
+    "gen:assets": "pnpm --filter @stickers/server gen:assets"
+  }
+}
