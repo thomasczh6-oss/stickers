@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseCreatePackRequest, parsePlanRequest, sanitizePlan, toPackIdentifier, validatePackMeta, validateStickerFile, WA } from "../src/index";
+import { captionUnits, parseCreatePackRequest, parsePlanRequest, sanitizePlan, toPackIdentifier, validatePackMeta, validateStickerFile, WA } from "../src/index";
 
 test("accepts a minimal prompt request", () => {
   const r = parseCreatePackRequest({ prompt: "a corgi", style: "cartoon", kind: "animated", actions: ["wave", "laugh", "love"] });
@@ -86,4 +86,16 @@ test("plan requests and planner output are cleaned", () => {
   assert.equal(plan.stickers.length, 3);
   assert.equal(plan.stickers[0]!.caption, "Float like a");
   assert.equal(sanitizePlan({ character: "x", stickers: [{ pose: "a" }] }, 6), undefined);
+});
+
+test("CJK captions count double", () => {
+  assert.equal(captionUnits("KO!"), 3);
+  assert.equal(captionUnits("我最强"), 6);
+  assert.equal(captionUnits("화이팅!"), 7);
+  const ok = parseCreatePackRequest({ prompt: "x", style: "cartoon", kind: "static", stickers: [{ pose: "a", caption: "頑張って" }, { pose: "b", caption: "一二三四五六七八九十" }, { pose: "c" }] });
+  assert.equal(ok.ok, true);
+  const long = parseCreatePackRequest({ prompt: "x", style: "cartoon", kind: "static", stickers: [{ pose: "a", caption: "一二三四五六七八九十一" }, { pose: "b" }, { pose: "c" }] });
+  assert.equal(long.ok, false);
+  const plan = sanitizePlan({ character: "x", stickers: [{ pose: "a", caption: "今天也要元气满满地加油哦" }, { pose: "b" }, { pose: "c" }] }, 3);
+  assert.equal(plan?.stickers[0]?.caption, "今天也要元气满满地加");
 });

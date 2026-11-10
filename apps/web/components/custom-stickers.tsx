@@ -158,7 +158,7 @@ export function CustomStickers({
               + Add a sticker
             </button>
           )}
-          <p className="text-xs text-muted">Captions print in Latin letters (English, Spanish, French…). Leave one empty for no text.</p>
+          <p className="text-xs text-muted">Captions can be in any Latin-script language, Chinese, Japanese or Korean (up to 10 CJK characters). Leave one empty for no text.</p>
         </div>
       )}
     </div>

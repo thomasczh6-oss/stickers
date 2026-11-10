@@ -9,7 +9,7 @@ export const CREATE_LIMITS = {
   PACK_NAME_MAX: 40,
   POSE_MAX: 300,
   MOTION_MAX: 300,
-  /** Captions are one line along the bottom of a 512px sticker. */
+  /** Captions are one line along the bottom of a 512px sticker: 20 Latin letters, or 10 CJK characters (they count double). */
   CAPTION_MAX: 20,
   DESCRIPTION_MAX: 1000,
   DEFAULT_PLAN_COUNT: 6,
@@ -96,6 +96,28 @@ export function parseCreatePackRequest(input: unknown): Result<CreatePackRequest
   };
 }
 
+/** Wide (CJK) characters take about twice the room of a Latin letter on a sticker. */
+const WIDE = /[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]|[\u{20000}-\u{3fffd}]/u;
+
+/** How much room a caption needs, in Latin-letter widths. Compare with CREATE_LIMITS.CAPTION_MAX. */
+export function captionUnits(text: string): number {
+  let n = 0;
+  for (const ch of text.trim()) n += WIDE.test(ch) ? 2 : 1;
+  return n;
+}
+
+/** Cuts a caption to fit, at a word boundary when it has spaces. */
+function cutCaption(text: string): string {
+  if (captionUnits(text) <= CREATE_LIMITS.CAPTION_MAX) return text;
+  let out = "";
+  for (const ch of text) {
+    if (captionUnits(out + ch) > CREATE_LIMITS.CAPTION_MAX) break;
+    out += ch;
+  }
+  const nextIsSpace = /\s/.test(text.charAt(out.length));
+  return (nextIsSpace || !out.includes(" ") ? out : out.replace(/\s+\S*$/, "")).trim();
+}
+
 const clean = (v: unknown, max: number) =>
   typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max) : "";
 
@@ -117,13 +139,13 @@ function parseOneSticker(raw: unknown): { sticker?: CustomSticker; error?: strin
   const s = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
   const pose = clean(s.pose, CREATE_LIMITS.POSE_MAX);
   if (!pose) return { error: "describe what the character is doing" };
-  if (typeof s.caption === "string" && s.caption.trim().length > CREATE_LIMITS.CAPTION_MAX) {
-    return { error: `caption must be at most ${CREATE_LIMITS.CAPTION_MAX} characters` };
+  if (typeof s.caption === "string" && captionUnits(s.caption) > CREATE_LIMITS.CAPTION_MAX) {
+    return { error: `caption is too long (at most ${CREATE_LIMITS.CAPTION_MAX} letters, or ${CREATE_LIMITS.CAPTION_MAX / 2} Chinese, Japanese or Korean characters)` };
   }
   const sticker: CustomSticker = { pose };
   const motion = clean(s.motion, CREATE_LIMITS.MOTION_MAX);
   if (motion) sticker.motion = motion;
-  const caption = clean(s.caption, CREATE_LIMITS.CAPTION_MAX);
+  const caption = clean(s.caption, 100);
   if (caption) sticker.caption = caption;
   const emojis = cleanEmojis(s.emojis);
   if (emojis.length) sticker.emojis = emojis;
@@ -174,9 +196,8 @@ export function sanitizePlan(input: unknown, count: number): StickerPlan | undef
   for (const item of raw) {
     if (stickers.length >= count) break;
     const s = (typeof item === "object" && item !== null ? item : {}) as Record<string, unknown>;
-    // The model sometimes writes a long caption: cut it at a word boundary instead of dropping the sticker.
-    const cap = clean(s.caption, 200);
-    const caption = cap.length > CREATE_LIMITS.CAPTION_MAX ? (cap.slice(0, CREATE_LIMITS.CAPTION_MAX + 1).replace(/\s+\S*$/, "") || cap).slice(0, CREATE_LIMITS.CAPTION_MAX) : cap;
+    // The model sometimes writes a long caption: cut it instead of dropping the sticker.
+    const caption = cutCaption(clean(s.caption, 200));
     const r = parseOneSticker({ ...s, caption });
     if (r.sticker) stickers.push(r.sticker);
   }
@@ -191,7 +212,7 @@ export function isPlanReady(plan?: StickerPlan): boolean {
       plan.character.trim() &&
       plan.stickers.length >= CREATE_LIMITS.MIN_ACTIONS &&
       plan.stickers.length <= CREATE_LIMITS.MAX_ACTIONS &&
-      plan.stickers.every((s) => s.pose.trim() && (s.caption ?? "").length <= CREATE_LIMITS.CAPTION_MAX),
+      plan.stickers.every((s) => s.pose.trim() && captionUnits(s.caption ?? "") <= CREATE_LIMITS.CAPTION_MAX),
   );
 }
 

@@ -136,7 +136,7 @@ export function CustomStickers({
               <Text style={s.ideaText}>+ Add a sticker</Text>
             </Pressable>
           )}
-          <Text style={s.hint}>Captions print in Latin letters (English, Spanish, French…). Leave one empty for no text.</Text>
+          <Text style={s.hint}>Captions can be in any Latin-script language, Chinese, Japanese or Korean (up to 10 CJK characters). Leave one empty for no text.</Text>
         </View>
       )}
     </View>

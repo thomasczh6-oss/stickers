@@ -115,9 +115,11 @@ test("alignFrames pins drifting frames to the first frame's feet", () => {
   assert.equal(frameAnchor(c!)!.y, 80);
 });
 
-test("captions keep only what the font can draw", () => {
+test("captions keep only what the fonts can draw (Latin and CJK)", () => {
   assert.equal(fitCaption("KO!"), "KO!");
   assert.equal(fitCaption("¡Olé, señor!"), "¡Olé, señor!");
-  assert.equal(fitCaption("拳击 KO 🥊"), "KO");
-  assert.equal(fitCaption("拳击🥊"), undefined);
+  assert.equal(fitCaption("拳击 KO 🥊"), "拳击 KO");
+  assert.equal(fitCaption("頑張って"), "頑張って");
+  assert.equal(fitCaption("화이팅!"), "화이팅!");
+  assert.equal(fitCaption("🥊🔥"), undefined);
 });
