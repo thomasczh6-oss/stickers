@@ -5,6 +5,7 @@
  *   pnpm --filter @stickers/server gen:assets                  # everything
  *   pnpm --filter @stickers/server gen:assets -- --only icons  # icons | samples | styles | og
  *   pnpm --filter @stickers/server gen:assets -- --only samples --samples knight,sloth   # just these packs
+ *   pnpm --filter @stickers/server gen:assets -- --only styles --styles photo,retro       # just these style previews
  *   IMAGE_PROVIDER=mock pnpm --filter @stickers/server gen:assets   # offline placeholders
  *
  * The model only draws the mascot and the sample characters. Backgrounds, gradients and
@@ -22,7 +23,10 @@ import { addOutline, alphaBounds, removeBackground } from "../src/pipeline/image
 import { createImageProvider } from "../src/providers";
 import { LocalStorage } from "../src/storage/storage";
 
-const { values } = parseArgs({ args: process.argv.slice(2).filter((a) => a !== "--"), options: { only: { type: "string" }, samples: { type: "string" } } });
+const { values } = parseArgs({
+  args: process.argv.slice(2).filter((a) => a !== "--"),
+  options: { only: { type: "string" }, samples: { type: "string" }, styles: { type: "string" } },
+});
 const want = (part: string) => !values.only || values.only.split(",").includes(part);
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
@@ -52,6 +56,11 @@ const SAMPLES: { slug: string; title: string; style: StyleId; prompt: string; bl
   { slug: "sloth", title: "Slowmo", style: "clay", prompt: "a sleepy sloth hugging a warm coffee mug, wearing a cozy knitted orange scarf", blurb: "“a sleepy sloth hugging a coffee mug”", actions: ["sleepy", "love", "laugh", "facepalm", "wave", "think"] },
   { slug: "leo", title: "Leo", style: "cartoon", prompt: "a chibi cheerful man with a big head and small body, short brown beard, messy brown hair, a red flannel shirt and a white T-shirt, very expressive face", blurb: "“a guy with a beard and a red flannel shirt”", actions: ["thumbs_up", "laugh", "facepalm", "cool", "cry", "wave"] },
   { slug: "grandma", title: "Nana", style: "3d", prompt: "a sweet grandma with silver curly hair, round glasses, rosy cheeks and a pink knitted cardigan, chibi proportions with a big head and small body", blurb: "“a sweet grandma with silver curls and a pink cardigan”", actions: ["love", "wave", "laugh", "shock", "think", "party"] },
+  // Realistic styles: fictional people, drawn from a text prompt like a user would type.
+  { slug: "jake", title: "Jake", style: "photo", prompt: "a Black man in his thirties with a short beard, a fade haircut and a navy hoodie", blurb: "“a guy with a short beard and a navy hoodie”", actions: ["wave", "laugh", "facepalm", "thumbs_up", "cool", "shock"] },
+  { slug: "chloe", title: "Chloe", style: "caricature", prompt: "a woman in her twenties with long blonde wavy hair, gold hoop earrings and a pink sweater", blurb: "“a woman with long blonde waves and a pink sweater”", actions: ["laugh", "shock", "love", "cool", "cry", "party"] },
+  { slug: "joe", title: "Grandpa Joe", style: "painted", prompt: "a grandpa with a white mustache, a flat cap and a tweed jacket over a red sweater", blurb: "“a grandpa with a white mustache and a flat cap”", actions: ["wave", "think", "laugh", "sleepy", "love", "thumbs_up"] },
+  { slug: "zoe", title: "Zoe", style: "retro", prompt: "a young woman with a black bob haircut, red lipstick and a black leather jacket", blurb: "“a woman with a black bob and a leather jacket”", actions: ["cool", "laugh", "party", "wave", "love", "shock"] },
 ];
 
 const cfg = loadConfig();
@@ -153,14 +162,17 @@ async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<v
 
 if (want("styles")) {
   // One subject drawn in every style, for the style picker on web and mobile.
-  const subject = "a cheerful young woman with curly auburn hair, freckles, a denim jacket and a white T-shirt, waving hello, chibi proportions with a big head and a small body, shown from the knees up";
+  const person = "a cheerful young woman with curly auburn hair, freckles, a denim jacket and a white T-shirt, waving hello";
+  const subjectFor = (style: (typeof STYLES)[number]) =>
+    style.group === "real" ? person : `${person}, chibi proportions with a big head and a small body, shown from the knees up`;
+  const onlyStyles = values.styles?.split(",");
   const webDir = path.join(WEB_PUBLIC, "styles");
   const appDir = path.join(MOBILE, "styles");
   await fs.mkdir(webDir, { recursive: true });
   await fs.mkdir(appDir, { recursive: true });
   await Promise.all(
-    STYLES.map(async (style) => {
-      const raw = await provider.image({ prompt: characterPrompt({ style, description: subject, fromPhoto: false }), images: [], size: "1024x1024", intent: { kind: "character" } });
+    STYLES.filter((style) => !onlyStyles || onlyStyles.includes(style.id)).map(async (style) => {
+      const raw = await provider.image({ prompt: characterPrompt({ style, description: subjectFor(style), fromPhoto: false }), images: [], size: "1024x1024", intent: { kind: "character" } });
       await fs.writeFile(path.join(WORK, `style-${style.id}-raw.png`), raw);
       const tile = await fit(await cutout(raw), 512, 0.9, true);
       await sharp(tile).resize(384, 384).webp({ quality: 82, alphaQuality: 90 }).toFile(path.join(webDir, `${style.id}.webp`));

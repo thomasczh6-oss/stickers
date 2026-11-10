@@ -96,5 +96,61 @@
       "05.webp",
       "06.webp"
     ]
+  },
+  {
+    "slug": "jake",
+    "title": "Jake",
+    "style": "photo",
+    "blurb": "“a guy with a short beard and a navy hoodie”",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
+  },
+  {
+    "slug": "chloe",
+    "title": "Chloe",
+    "style": "caricature",
+    "blurb": "“a woman with long blonde waves and a pink sweater”",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
+  },
+  {
+    "slug": "joe",
+    "title": "Grandpa Joe",
+    "style": "painted",
+    "blurb": "“a grandpa with a white mustache and a flat cap”",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
+  },
+  {
+    "slug": "zoe",
+    "title": "Zoe",
+    "style": "retro",
+    "blurb": "“a woman with a black bob and a leather jacket”",
+    "stickers": [
+      "01.webp",
+      "02.webp",
+      "03.webp",
+      "04.webp",
+      "05.webp",
+      "06.webp"
+    ]
   }
 ]

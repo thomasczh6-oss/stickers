@@ -4,10 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import sharp from "sharp";
-import { WA } from "@stickers/shared";
+import { ACTIONS, STYLES, WA } from "@stickers/shared";
 import { inspectSticker } from "../src/pipeline/encode";
 import { generatePack } from "../src/pipeline/generatePack";
 import { addOutline, alignFrames, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
+import { characterPrompt, spriteSheetPrompt } from "../src/pipeline/prompts";
 import { MockImageProvider } from "../src/providers/mock";
 import { LocalStorage } from "../src/storage/storage";
 
@@ -40,6 +41,19 @@ test("background removal leaves a model-made cut-out alone, keeping dark outline
   const outline = px(100, 30);
   assert.equal(outline[3], 255, "dark outline is kept");
   assert.ok(outline[0]! < 60, "outline keeps its dark colour");
+});
+
+test("realistic styles keep the real likeness instead of a cute cartoon", () => {
+  const photo = STYLES.find((s) => s.id === "photo")!;
+  const cartoon = STYLES.find((s) => s.id === "cartoon")!;
+  const fromPhoto = characterPrompt({ style: photo, fromPhoto: true });
+  assert.match(fromPhoto, /real face and likeness/);
+  assert.match(fromPhoto, /waist up/);
+  assert.doesNotMatch(fromPhoto, /cute sticker character/);
+  // A planner or user may still write "chibi"; the realistic style must override it.
+  assert.match(characterPrompt({ style: photo, description: "a chibi nurse", fromPhoto: false }), /do not turn the subject into a cartoon, anime or chibi/);
+  assert.match(spriteSheetPrompt({ style: photo, action: ACTIONS[0] }), /short video clip/);
+  assert.match(characterPrompt({ style: cartoon, fromPhoto: true }), /cute sticker character/);
 });
 
 test("outline adds a white border around the character", async () => {

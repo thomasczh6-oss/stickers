@@ -1,4 +1,4 @@
-import { ACTIONS, CREATE_LIMITS, DEFAULT_ACTIONS, parseCreatePackRequest, STYLES, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, CREATE_LIMITS, DEFAULT_ACTIONS, parseCreatePackRequest, STYLE_GROUPS, STYLES, type ActionId, type StyleId } from "@stickers/shared";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -19,6 +19,10 @@ const STYLE_IMAGES: Record<StyleId, number> = {
   anime: require("@/assets/images/styles/anime.png"),
   pixel: require("@/assets/images/styles/pixel.png"),
   clay: require("@/assets/images/styles/clay.png"),
+  photo: require("@/assets/images/styles/photo.png"),
+  caricature: require("@/assets/images/styles/caricature.png"),
+  painted: require("@/assets/images/styles/painted.png"),
+  retro: require("@/assets/images/styles/retro.png"),
 };
 
 const IDEAS = ["a sleepy panda chef", "a grumpy cat barista", "a tiny astronaut hamster"];
@@ -154,24 +158,29 @@ export default function Create() {
         </Section>
 
         <Section n={2} title="Pick a style">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.styles} style={s.stylesScroll}>
-            {STYLES.map((st) => {
-              const on = style === st.id;
-              return (
-                <Pressable
-                  key={st.id}
-                  onPress={() => {
-                    tap();
-                    setStyle(st.id);
-                  }}
-                  style={[s.styleCard, on && s.styleCardOn]}
-                >
-                  <Image source={STYLE_IMAGES[st.id]} style={s.styleImg} contentFit="contain" />
-                  <Text style={s.styleLabel}>{st.label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          {STYLE_GROUPS.map((g) => (
+            <View key={g.id}>
+              <Text style={s.styleGroup}>{g.label}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.styles} style={s.stylesScroll}>
+                {STYLES.filter((st) => st.group === g.id).map((st) => {
+                  const on = style === st.id;
+                  return (
+                    <Pressable
+                      key={st.id}
+                      onPress={() => {
+                        tap();
+                        setStyle(st.id);
+                      }}
+                      style={[s.styleCard, on && s.styleCardOn]}
+                    >
+                      <Image source={STYLE_IMAGES[st.id]} style={s.styleImg} contentFit="contain" />
+                      <Text style={s.styleLabel}>{st.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ))}
         </Section>
 
         <Section n={3} title="Reactions" aside={`${actions.length} of ${CREATE_LIMITS.MAX_ACTIONS}`}>
@@ -255,7 +264,8 @@ const s = StyleSheet.create({
   input: { minHeight: 96, backgroundColor: C.bg, borderRadius: 16, padding: 14, fontSize: 15, fontFamily: F.regular, color: C.ink, borderWidth: 1, borderColor: C.line, textAlignVertical: "top" },
   idea: { borderWidth: 1, borderColor: C.line, borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6, marginTop: 10 },
   ideaText: { fontFamily: F.medium, fontSize: 13, color: C.ink },
-  stylesScroll: { marginHorizontal: -18 },
+  styleGroup: { fontFamily: F.semibold, fontSize: 13, color: C.muted, marginTop: 4, marginBottom: 8 },
+  stylesScroll: { marginHorizontal: -18, marginBottom: 10 },
   styles: { paddingHorizontal: 18, gap: 10 },
   styleCard: { width: 104, borderRadius: 18, borderWidth: 2, borderColor: "transparent", padding: 4 },
   styleCardOn: { borderColor: C.brand, backgroundColor: C.brandSoft },

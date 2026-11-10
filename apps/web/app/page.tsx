@@ -1,4 +1,4 @@
-import { STYLES } from "@stickers/shared";
+import { STYLE_GROUPS, STYLES } from "@stickers/shared";
 import Link from "next/link";
 import { ExampleGallery } from "@/components/example-gallery";
 import samples from "@/public/samples/index.json";
@@ -131,17 +131,26 @@ export default function Home() {
 
       {/* Styles */}
       <section className="py-16">
-        <SectionTitle eyebrow="Styles" title="Pick a look that’s you" body="Same idea, five ways. Switch styles any time and make as many packs as you like." />
-        <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
-          {STYLES.map((s) => (
-            <figure key={s.id} className="group rounded-[24px] border border-line bg-card p-3 transition hover:-translate-y-1 hover:shadow-[0_16px_40px_-20px_rgba(22,18,29,0.35)]">
-              <div className="rounded-[18px] bg-paper">
-                <img src={`/styles/${s.id}.webp`} alt={`${s.label} style`} width={384} height={384} className="aspect-square w-full" loading="lazy" />
-              </div>
-              <figcaption className="px-1 pt-3 pb-1 font-semibold">{s.label}</figcaption>
-            </figure>
-          ))}
-        </div>
+        <SectionTitle
+          eyebrow="Styles"
+          title="Pick a look that’s you"
+          body="Go cartoon, or keep it real with photo, caricature and painted looks. Switch styles any time and make as many packs as you like."
+        />
+        {STYLE_GROUPS.map((g) => (
+          <div key={g.id} className="mt-12">
+            <h3 className="font-display text-xl font-bold tracking-tight">{g.label}</h3>
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+              {STYLES.filter((s) => s.group === g.id).map((s) => (
+                <figure key={s.id} className="group rounded-[24px] border border-line bg-card p-3 transition hover:-translate-y-1 hover:shadow-[0_16px_40px_-20px_rgba(22,18,29,0.35)]">
+                  <div className="rounded-[18px] bg-paper">
+                    <img src={`/styles/${s.id}.webp`} alt={`${s.label} style`} width={384} height={384} className="aspect-square w-full" loading="lazy" />
+                  </div>
+                  <figcaption className="px-1 pt-3 pb-1 font-semibold">{s.label}</figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       {/* FAQ */}
