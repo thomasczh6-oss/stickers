@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n";
 import { api } from "@/lib/api";
+import { clearDraft } from "@/lib/draft";
 import samples from "@/public/samples/index.json";
 
 const PREVIEW = samples.flatMap((p) => p.stickers.map((f) => `/samples/${p.slug}/${f}`));
@@ -28,7 +29,10 @@ export default function JobPage() {
         if (stop) return;
         setJob(job);
         setError(undefined);
-        if (job.status === "succeeded" && job.packId) return router.replace(`/p/${job.packId}`);
+        if (job.status === "succeeded" && job.packId) {
+          clearDraft(id);
+          return router.replace(`/p/${job.packId}`);
+        }
         if (job.status === "failed") return;
       } catch (e) {
         if (!stop) setError((e as Error).message);
@@ -51,7 +55,7 @@ export default function JobPage() {
         <h1 className="mt-5 font-display text-3xl font-extrabold">{j.failedTitle}</h1>
         <p className="mt-3 text-muted">{job.error ?? j.failedBody}</p>
         <p className="mt-2 text-sm text-muted">{j.failedHint}</p>
-        <Link href="/create" className="mt-8 inline-block rounded-full bg-ink px-7 py-3.5 font-semibold text-white">
+        <Link href={`/create?retry=${encodeURIComponent(id)}`} className="mt-8 inline-block rounded-full bg-ink px-7 py-3.5 font-semibold text-white">
           {j.tryAgain}
         </Link>
       </div>

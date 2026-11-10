@@ -20,6 +20,7 @@ export const de: Messages = {
   ideas: ["ein verschlafener Panda-Koch", "mein Golden Retriever mit Sonnenbrille", "eine grummelige Barista-Katze", "ein winziger Astronauten-Hamster"],
 
   create: {
+    restored: "Dein Foto und deine Auswahl vom letzten Mal sind noch da. Ändere etwas oder versuch es einfach nochmal.",
     who: "Wer ist auf deinen Stickern?",
     style: "Wähle einen Stil",
     reactions: "Wähle deine Reaktionen",
@@ -35,6 +36,30 @@ export const de: Messages = {
     starting: "Geht los…",
     takesMinute: "Dauert etwa eine Minute.",
     needDescription: "Beschreib deine Figur, um loszulegen.",
+  },
+
+  custom: {
+    modeClassic: "Klassische Reaktionen",
+    modeCustom: "✨ Ganz nach dir",
+    title: "Was sollen sie machen?",
+    describeLabel: "Erzähl uns, wer du bist und was deine Sticker zeigen sollen",
+    describePlaceholder: "z. B. Ich bin Boxer. Ein Chibi-Ich, das zuschlägt, einen K.o. feiert, mit Texten wie „Los geht’s!“",
+    ideas: ["Ich bin Boxer. Chibi-Ich beim Schlagen, mit „KO!“ und „Los!“", "Eine Yogalehrerin, die immer ruhig bleibt, selbst im Chaos", "Unsere Katze Miso, die alles kritisch beäugt", "Pflegekraft im Nachtdienst: Kaffee, High Fives, „Brauch Schlaf“"],
+    tryLabel: "Probier:",
+    countLabel: "Sticker",
+    write: "✨ Sticker schreiben",
+    writing: "Deine Sticker werden geschrieben…",
+    rewrite: "Neu schreiben",
+    character: "Deine Figur",
+    yourStickers: "Deine Sticker · alles änderbar",
+    captionLabel: "Text für Sticker {n}",
+    poseLabel: "Was Sticker {n} zeigt",
+    removeLabel: "Sticker {n} entfernen",
+    noCaption: "Kein Text",
+    posePlaceholder: "Was macht die Figur?",
+    add: "+ Sticker hinzufügen",
+    captionHint: "Texte gehen in jeder Sprache mit lateinischer Schrift sowie auf Chinesisch, Japanisch oder Koreanisch (bis zu 10 Zeichen). Leer lassen für keinen Text.",
+    needPlan: "Beschreib deine Sticker und tippe auf „Sticker schreiben“.",
   },
 
   job: {

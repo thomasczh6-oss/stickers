@@ -20,6 +20,7 @@ export const fr: Messages = {
   ideas: ["un panda chef tout endormi", "mon golden retriever en lunettes de soleil", "un chat barista grincheux", "un minuscule hamster astronaute"],
 
   create: {
+    restored: "Nous avons gardé votre photo et vos choix de la dernière fois. Modifiez ce que vous voulez ou réessayez.",
     who: "Qui apparaît sur vos stickers ?",
     style: "Choisissez un style",
     reactions: "Choisissez vos réactions",
@@ -35,6 +36,30 @@ export const fr: Messages = {
     starting: "C’est parti…",
     takesMinute: "Environ une minute.",
     needDescription: "Décrivez votre personnage pour commencer.",
+  },
+
+  custom: {
+    modeClassic: "Réactions classiques",
+    modeCustom: "✨ À votre façon",
+    title: "Que doivent-ils faire ?",
+    describeLabel: "Dites-nous qui vous êtes et ce que vos stickers doivent faire",
+    describePlaceholder: "ex. Je suis boxeur. Je veux un moi chibi qui frappe, fête un KO, avec des textes comme « C’est parti ! »",
+    ideas: ["Je suis boxeur. Moi en chibi qui frappe, avec « KO ! » et « Go ! »", "Une prof de yoga toujours zen, même en plein chaos", "Notre chat Miso qui juge tout", "Infirmière de nuit : café, check, « Besoin de dormir »"],
+    tryLabel: "Essayez :",
+    countLabel: "Stickers",
+    write: "✨ Écrire mes stickers",
+    writing: "Écriture de vos stickers…",
+    rewrite: "Les réécrire",
+    character: "Votre personnage",
+    yourStickers: "Vos stickers · tout est modifiable",
+    captionLabel: "Texte du sticker {n}",
+    poseLabel: "Ce que montre le sticker {n}",
+    removeLabel: "Retirer le sticker {n}",
+    noCaption: "Sans texte",
+    posePlaceholder: "Que fait le personnage ?",
+    add: "+ Ajouter un sticker",
+    captionHint: "Les textes peuvent être dans toute langue en alphabet latin, en chinois, japonais ou coréen (10 caractères max). Laissez vide pour aucun texte.",
+    needPlan: "Décrivez vos stickers, puis touchez « Écrire mes stickers ».",
   },
 
   job: {

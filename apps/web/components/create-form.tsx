@@ -1,13 +1,16 @@
 "use client";
 
-import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, isPlanReady, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StickerPlan, type StyleId } from "@stickers/shared";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { loadDraft, saveDraft } from "@/lib/draft";
+import { CustomStickers } from "./custom-stickers";
 import { useI18n } from "./i18n";
 
 type Photo = { base64: string; mimeType: "image/jpeg"; previewUrl: string };
 type Source = "photo" | "describe";
+type Mode = "presets" | "custom";
 
 /** Downscales a picked photo to at most 1024px and re-encodes it as JPEG, so uploads stay small. */
 async function preparePhoto(file: File): Promise<Photo> {
@@ -35,9 +38,34 @@ export function CreateForm() {
   const [animated, setAnimated] = useState(true);
   const [actions, setActions] = useState<ActionId[]>(DEFAULT_ACTIONS);
   const [captions, setCaptions] = useState(true);
+  const [mode, setMode] = useState<Mode>("presets");
+  const [plan, setPlan] = useState<StickerPlan>();
+  const [description, setDescription] = useState("");
+  const [count, setCount] = useState(6);
   const [packName, setPackName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [restored, setRestored] = useState(false);
+
+  // Coming back from a failed job ("Try again"): refill the form exactly as it was.
+  useEffect(() => {
+    const retry = new URLSearchParams(window.location.search).get("retry");
+    const d = retry ? loadDraft(retry) : undefined;
+    if (!d) return;
+    setSource(d.source);
+    setPrompt(d.prompt);
+    if (d.photo) setPhoto({ ...d.photo, previewUrl: `data:${d.photo.mimeType};base64,${d.photo.base64}` });
+    setStyle(d.style);
+    setAnimated(d.animated);
+    setActions(d.actions);
+    setCaptions(d.captions);
+    setPackName(d.packName);
+    setMode(d.mode);
+    setPlan(d.plan);
+    setDescription(d.description);
+    setCount(d.count);
+    setRestored(true);
+  }, []);
 
   const toggle = (id: ActionId) =>
     setActions((cur) => (cur.includes(id) ? cur.filter((a) => a !== id) : cur.length < CREATE_LIMITS.MAX_ACTIONS ? [...cur, id] : cur));
@@ -54,19 +82,22 @@ export function CreateForm() {
   }
 
   const usePhoto = source === "photo" && photo;
-  const ready = (usePhoto || prompt.trim().length > 0) && actions.length >= CREATE_LIMITS.MIN_ACTIONS;
+  const custom = mode === "custom";
+  const ready = custom ? isPlanReady(plan) : (usePhoto || prompt.trim().length > 0) && actions.length >= CREATE_LIMITS.MIN_ACTIONS;
+  const stickerCount = custom ? (plan?.stickers.length ?? 0) : actions.length;
+  const emojis = custom ? (plan?.stickers ?? []).map((st) => st.emojis?.[0] ?? "😀") : actions.map((id) => ACTIONS.find((a) => a.id === id)?.emojis[0]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(undefined);
     const body = {
-      prompt: prompt.trim() || undefined,
+      // In custom mode the plan's character already includes what the user wrote in step 1.
+      prompt: (custom ? plan?.character.trim() : prompt.trim()) || undefined,
       photo: usePhoto ? { base64: photo.base64, mimeType: photo.mimeType } : undefined,
       style,
       kind: animated ? "animated" : "static",
-      actions,
-      captions,
-      packName: packName.trim() || undefined,
+      ...(custom ? { actions: [], stickers: plan?.stickers } : { actions, captions }),
+      packName: packName.trim() || (custom ? plan?.packName : undefined),
       locale,
     };
     const parsed = parseCreatePackRequest(body);
@@ -74,6 +105,20 @@ export function CreateForm() {
     setBusy(true);
     try {
       const { job } = await api().createPack(parsed.value);
+      saveDraft(job.id, {
+        source,
+        prompt,
+        photo: photo ? { base64: photo.base64, mimeType: photo.mimeType } : undefined,
+        style,
+        animated,
+        actions,
+        captions,
+        packName,
+        mode,
+        plan,
+        description,
+        count,
+      });
       router.push(`/jobs/${job.id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -200,41 +245,73 @@ export function CreateForm() {
 
         <Step
           n={3}
-          title={c.reactions}
+          title={custom ? m.custom.title : c.reactions}
           aside={
-            <span className="text-sm text-muted">
-              {fmt(c.reactionsCount, { n: actions.length, max: CREATE_LIMITS.MAX_ACTIONS })} · {fmt(c.reactionsMin, { min: CREATE_LIMITS.MIN_ACTIONS })}
-            </span>
+            custom ? undefined : (
+              <span className="text-sm text-muted">
+                {fmt(c.reactionsCount, { n: actions.length, max: CREATE_LIMITS.MAX_ACTIONS })} · {fmt(c.reactionsMin, { min: CREATE_LIMITS.MIN_ACTIONS })}
+              </span>
+            )
           }
         >
-          <div className="flex flex-wrap gap-2">
-            {ACTIONS.map((a) => {
-              const on = actions.includes(a.id);
-              return (
-                <button
-                  type="button"
-                  key={a.id}
-                  onClick={() => toggle(a.id)}
-                  aria-pressed={on}
-                  className={`flex items-center gap-2 rounded-full border py-2 pr-4 pl-2.5 text-sm font-semibold transition ${on ? "border-ink bg-ink text-white" : "border-line bg-card hover:border-ink/30"}`}
-                >
-                  <span className="text-lg leading-none">{a.emojis[0]}</span>
-                  {actionName(m, a.id)}
-                </button>
-              );
-            })}
+          <div role="tablist" className="mb-5 flex w-fit gap-1 rounded-full bg-paper p-1 ring-1 ring-line">
+            {(["presets", "custom"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={mode === k}
+                onClick={() => setMode(k)}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${mode === k ? "bg-ink text-white" : "text-muted hover:text-ink"}`}
+              >
+                {k === "presets" ? m.custom.modeClassic : m.custom.modeCustom}
+              </button>
+            ))}
           </div>
+          {custom ? (
+            <CustomStickers
+              plan={plan}
+              onPlan={setPlan}
+              description={description}
+              onDescription={setDescription}
+              count={count}
+              onCount={setCount}
+              kind={animated ? "animated" : "static"}
+              hasPhoto={Boolean(usePhoto)}
+              characterHint={prompt}
+            />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {ACTIONS.map((a) => {
+                const on = actions.includes(a.id);
+                return (
+                  <button
+                    type="button"
+                    key={a.id}
+                    onClick={() => toggle(a.id)}
+                    aria-pressed={on}
+                    className={`flex items-center gap-2 rounded-full border py-2 pr-4 pl-2.5 text-sm font-semibold transition ${on ? "border-ink bg-ink text-white" : "border-line bg-card hover:border-ink/30"}`}
+                  >
+                    <span className="text-lg leading-none">{a.emojis[0]}</span>
+                    {actionName(m, a.id)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </Step>
 
         <Step n={4} title={c.finishing}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Toggle checked={animated} onChange={setAnimated} title={c.animated} body={c.animatedBody} />
-            <Toggle
-              checked={captions}
-              onChange={setCaptions}
-              title={c.captions}
-              body={fmt(c.captionsBody, { a: actionName(m, "laugh"), b: actionName(m, "shock") })}
-            />
+            {!custom && (
+              <Toggle
+                checked={captions}
+                onChange={setCaptions}
+                title={c.captions}
+                body={fmt(c.captionsBody, { a: actionName(m, "laugh"), b: actionName(m, "shock") })}
+              />
+            )}
           </div>
           <label className="mt-5 block text-sm font-semibold" htmlFor="name">
             {w.packName} <span className="font-normal text-muted">{w.optional}</span>
@@ -244,7 +321,7 @@ export function CreateForm() {
             value={packName}
             onChange={(e) => setPackName(e.target.value)}
             maxLength={CREATE_LIMITS.PACK_NAME_MAX}
-            placeholder={w.packNamePlaceholder}
+            placeholder={custom && plan ? plan.packName : w.packNamePlaceholder}
             className="mt-2 w-full rounded-2xl border border-line bg-paper px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-brand/10"
           />
         </Step>
@@ -261,28 +338,27 @@ export function CreateForm() {
             )}
           </div>
           <div>
-            <div className="font-display text-3xl font-extrabold">{actions.length}</div>
+            <div className="font-display text-3xl font-extrabold">{stickerCount}</div>
             <div className="text-sm text-muted">
               {fmt(animated ? w.summaryAnimated : w.summaryStill, { style: styleName(m, style) })}
             </div>
           </div>
         </div>
         <div className="mt-5 flex flex-wrap gap-1.5 text-xl">
-          {actions.map((id) => (
-            <span key={id} title={actionName(m, id)}>
-              {ACTIONS.find((a) => a.id === id)?.emojis[0]}
-            </span>
+          {emojis.map((e, i) => (
+            <span key={i}>{e}</span>
           ))}
         </div>
+        {restored && !error && <p className="mt-5 rounded-2xl bg-brand-soft p-3 text-sm">{c.restored}</p>}
         {error && <p className="mt-5 rounded-2xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
         <button
           disabled={busy || !ready}
           className="mt-6 w-full rounded-full bg-ink px-6 py-4 font-semibold text-white transition enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? c.starting : fmt(c.make, { n: actions.length })}
+          {busy ? c.starting : fmt(c.make, { n: stickerCount })}
         </button>
         <p className="mt-3 text-center text-xs text-muted">
-          {ready ? c.takesMinute : source === "photo" ? w.needPhoto : c.needDescription}
+          {ready ? c.takesMinute : custom ? m.custom.needPlan : source === "photo" ? w.needPhoto : c.needDescription}
         </p>
       </aside>
     </form>

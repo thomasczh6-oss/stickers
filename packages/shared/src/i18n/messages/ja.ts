@@ -20,6 +20,7 @@ export const ja: Messages = {
   ideas: ["眠たそうなパンダのシェフ", "サングラスをかけたうちのゴールデンレトリバー", "不機嫌なネコのバリスタ", "ちいさな宇宙飛行士のハムスター"],
 
   create: {
+    restored: "前回の写真と設定をそのまま残しています。変更するか、そのままもう一度お試しください。",
     who: "スタンプの主役は？",
     style: "スタイルを選ぶ",
     reactions: "リアクションを選ぶ",
@@ -35,6 +36,30 @@ export const ja: Messages = {
     starting: "準備中…",
     takesMinute: "1分ほどでできあがります。",
     needDescription: "キャラクターを説明すると始められます。",
+  },
+
+  custom: {
+    modeClassic: "定番リアクション",
+    modeCustom: "✨ 自分らしく",
+    title: "何をしてほしい？",
+    describeLabel: "あなたのことと、スタンプでやってほしいことを教えてください",
+    describePlaceholder: "例：ボクサーです。ちびキャラの私がパンチしたり KO を喜んだり、「いくぞ！」みたいな文字入りで",
+    ideas: ["ボクサーです。ちびキャラの私がパンチ、「KO!」「いくぞ」付き", "どんな時でも落ち着いているヨガの先生", "なんでも見下す、うちの猫ミソ", "夜勤のナース：コーヒー、ハイタッチ、「眠い」"],
+    tryLabel: "例：",
+    countLabel: "スタンプ数",
+    write: "✨ スタンプを考えて",
+    writing: "スタンプを考え中…",
+    rewrite: "もう一度考える",
+    character: "あなたのキャラクター",
+    yourStickers: "あなたのスタンプ · 自由に編集",
+    captionLabel: "スタンプ {n} の文字",
+    poseLabel: "スタンプ {n} の内容",
+    removeLabel: "スタンプ {n} を削除",
+    noCaption: "文字なし",
+    posePlaceholder: "キャラクターは何をしている？",
+    add: "+ スタンプを追加",
+    captionHint: "文字はラテン文字の言語、中国語・日本語・韓国語に対応（漢字・かななどは 10 文字まで）。空欄なら文字なし。",
+    needPlan: "スタンプの内容を書いて「スタンプを考えて」をタップしてください。",
   },
 
   job: {

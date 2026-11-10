@@ -1,7 +1,8 @@
-import type { ACTIONS, STYLES } from "@stickers/shared";
+import type { STYLES } from "@stickers/shared";
 
 type Style = (typeof STYLES)[number];
-type Action = (typeof ACTIONS)[number];
+/** What one sticker shows: a preset action or one the user described. */
+type Action = { pose: string; motion: string };
 
 const BACKGROUND_RULES =
   "Background: one flat, solid, pure green color (#00FF00) filling the entire image, with no gradient, no shadow, no floor and no scenery. " +

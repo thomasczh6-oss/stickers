@@ -39,6 +39,8 @@ export const en = {
   ideas: ["a sleepy panda chef", "my golden retriever in sunglasses", "a grumpy cat barista", "a tiny astronaut hamster"],
 
   create: {
+    /** Shown on the create form after "Try again" refilled it from the failed job. */
+    restored: "We kept your photo and choices from last time. Change anything, or just try again.",
     who: "Who’s in your stickers?",
     style: "Pick a style",
     reactions: "Choose your reactions",
@@ -54,6 +56,31 @@ export const en = {
     starting: "Starting…",
     takesMinute: "Takes about a minute.",
     needDescription: "Describe your character to start.",
+  },
+
+  custom: {
+    /** "Make it yours": the user describes their stickers and the server writes one per idea. */
+    modeClassic: "Classic reactions",
+    modeCustom: "✨ Make it yours",
+    title: "What should they do?",
+    describeLabel: "Tell us who you are and what your stickers should do",
+    describePlaceholder: "e.g. I’m a boxer. I want a chibi me throwing big punches, celebrating a KO, and captions like “Let’s go!”",
+    ideas: ["I’m a boxer. Chibi me throwing punches, with “KO!” and “Let’s go”", "A yoga teacher who’s always calm, even when chaos hits", "Our cat Miso judging everything", "A nurse on night shift: coffee, high fives, “Need sleep”"],
+    tryLabel: "Try:",
+    countLabel: "Stickers",
+    write: "✨ Write my stickers",
+    writing: "Writing your stickers…",
+    rewrite: "Write them again",
+    character: "Your character",
+    yourStickers: "Your stickers · edit anything",
+    captionLabel: "Caption for sticker {n}",
+    poseLabel: "What sticker {n} shows",
+    removeLabel: "Remove sticker {n}",
+    noCaption: "No caption",
+    posePlaceholder: "What is the character doing?",
+    add: "+ Add a sticker",
+    captionHint: "Captions can be in any Latin-script language, Chinese, Japanese or Korean (up to 10 CJK characters). Leave one empty for no text.",
+    needPlan: "Describe your stickers, then tap “Write my stickers”.",
   },
 
   job: {

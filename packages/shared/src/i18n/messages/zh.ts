@@ -21,6 +21,7 @@ export const zh: Messages = {
   ideas: ["一只犯困的熊猫厨师", "戴墨镜的金毛", "一只脾气暴躁的猫咪咖啡师", "一只迷你宇航员仓鼠"],
 
   create: {
+    restored: "已保留你上次的照片和所有选择，可以修改后再试，也可以直接重试。",
     who: "贴纸的主角是谁？",
     style: "选一个风格",
     reactions: "选择表情动作",
@@ -36,6 +37,30 @@ export const zh: Messages = {
     starting: "正在开始…",
     takesMinute: "大约需要一分钟。",
     needDescription: "描述一下你的角色就能开始。",
+  },
+
+  custom: {
+    modeClassic: "经典表情",
+    modeCustom: "✨ 按我的想法",
+    title: "他们要做什么？",
+    describeLabel: "说说你是谁，想要什么样的贴纸",
+    describePlaceholder: "例如：我是拳击手，想要一个 Q 版的我挥拳、庆祝 KO，配上“冲啊！”这样的文字",
+    ideas: ["我是拳击手，Q 版的我挥拳，配“KO!”和“冲啊”", "永远淡定的瑜伽老师，天塌了也不慌", "我家猫咪 Miso 嫌弃一切", "夜班护士：咖啡、击掌、“想睡觉”"],
+    tryLabel: "试试：",
+    countLabel: "贴纸数量",
+    write: "✨ 帮我写贴纸",
+    writing: "正在写你的贴纸…",
+    rewrite: "重新写一遍",
+    character: "你的角色",
+    yourStickers: "你的贴纸 · 都可以改",
+    captionLabel: "第 {n} 张贴纸的文字",
+    poseLabel: "第 {n} 张贴纸的画面",
+    removeLabel: "删除第 {n} 张贴纸",
+    noCaption: "不加文字",
+    posePlaceholder: "角色在做什么？",
+    add: "+ 再加一张",
+    captionHint: "文字支持拉丁字母语言和中日韩文字（中日韩最多 10 个字）。留空就不加文字。",
+    needPlan: "先描述你的贴纸，再点“帮我写贴纸”。",
   },
 
   job: {

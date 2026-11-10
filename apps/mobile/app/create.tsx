@@ -1,18 +1,21 @@
-import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, isPlanReady, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StickerPlan, type StyleId } from "@stickers/shared";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CustomStickers } from "@/components/CustomStickers";
 import { api } from "@/lib/api";
+import { loadDraft, saveDraft } from "@/lib/draft";
 import { tap } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
 import { C, F } from "@/lib/theme";
 
 type Photo = { uri: string; base64: string };
 type Source = "photo" | "describe";
+type Mode = "presets" | "custom";
 
 const STYLE_IMAGES: Record<StyleId, number> = {
   cartoon: require("@/assets/images/styles/cartoon.png"),
@@ -50,8 +53,38 @@ export default function Create() {
   const [actions, setActions] = useState<ActionId[]>(DEFAULT_ACTIONS);
   const [animated, setAnimated] = useState(true);
   const [captions, setCaptions] = useState(true);
+  const [mode, setMode] = useState<Mode>("presets");
+  const [plan, setPlan] = useState<StickerPlan>();
+  const [description, setDescription] = useState("");
+  const [count, setCount] = useState(6);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [restored, setRestored] = useState(false);
+  const { retry } = useLocalSearchParams<{ retry?: string }>();
+
+  // Coming back from a failed job ("Try again"): refill the screen exactly as it was.
+  useEffect(() => {
+    if (!retry) return;
+    let live = true;
+    void loadDraft(retry).then((d) => {
+      if (!live || !d) return;
+      setSource(d.source);
+      setPrompt(d.prompt);
+      setPhoto(d.photo);
+      setStyle(d.style);
+      setAnimated(d.animated);
+      setActions(d.actions);
+      setCaptions(d.captions);
+      setMode(d.mode);
+      setPlan(d.plan);
+      setDescription(d.description);
+      setCount(d.count);
+      setRestored(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, [retry]);
 
   const toggle = (id: ActionId) => {
     tap();
@@ -59,24 +92,27 @@ export default function Create() {
   };
 
   const usePhoto = source === "photo" && photo;
-  const ready = (!!usePhoto || prompt.trim().length > 0) && actions.length >= CREATE_LIMITS.MIN_ACTIONS;
+  const custom = mode === "custom";
+  const ready = custom ? isPlanReady(plan) : (!!usePhoto || prompt.trim().length > 0) && actions.length >= CREATE_LIMITS.MIN_ACTIONS;
+  const stickerCount = custom ? (plan?.stickers.length ?? 0) : actions.length;
 
   async function submit() {
     tap();
     setError(undefined);
     const parsed = parseCreatePackRequest({
-      prompt: prompt.trim() || undefined,
+      // In custom mode the plan's character already includes what the user wrote in step 1.
+      prompt: (custom ? plan?.character.trim() : prompt.trim()) || undefined,
       photo: usePhoto ? { base64: photo.base64, mimeType: "image/jpeg" } : undefined,
       style,
       kind: animated ? "animated" : "static",
-      actions,
-      captions,
+      ...(custom ? { actions: [], stickers: plan?.stickers, packName: plan?.packName } : { actions, captions }),
       locale,
     });
     if (!parsed.ok) return setError(parsed.errors.join(". "));
     setBusy(true);
     try {
       const { job } = await (await api()).createPack(parsed.value);
+      await saveDraft(job.id, { source, prompt, photo, style, animated, actions, captions, mode, plan, description, count });
       router.replace({ pathname: "/job/[id]", params: { id: job.id } });
     } catch (e) {
       setError((e as Error).message);
@@ -186,18 +222,46 @@ export default function Create() {
           ))}
         </Section>
 
-        <Section n={3} title={c.reactionsShort} aside={fmt(c.reactionsCount, { n: actions.length, max: CREATE_LIMITS.MAX_ACTIONS })}>
-          <View style={s.wrap}>
-            {ACTIONS.map((act) => {
-              const on = actions.includes(act.id);
-              return (
-                <Pressable key={act.id} onPress={() => toggle(act.id)} style={[s.chip, on && s.chipOn]}>
-                  <Text style={s.emoji}>{act.emojis[0]}</Text>
-                  <Text style={[s.chipText, on && s.chipTextOn]}>{actionName(m, act.id)}</Text>
-                </Pressable>
-              );
-            })}
+        <Section n={3} title={custom ? m.custom.title : c.reactionsShort} aside={custom ? undefined : fmt(c.reactionsCount, { n: actions.length, max: CREATE_LIMITS.MAX_ACTIONS })}>
+          <View style={[s.segment, { marginBottom: 14 }]}>
+            {(["presets", "custom"] as const).map((k) => (
+              <Pressable
+                key={k}
+                onPress={() => {
+                  tap();
+                  setMode(k);
+                }}
+                style={[s.segmentItem, mode === k && s.segmentOn]}
+              >
+                <Text style={[s.segmentText, mode === k && s.segmentTextOn]}>{k === "presets" ? m.custom.modeClassic : m.custom.modeCustom}</Text>
+              </Pressable>
+            ))}
           </View>
+          {custom ? (
+            <CustomStickers
+              plan={plan}
+              onPlan={setPlan}
+              description={description}
+              onDescription={setDescription}
+              count={count}
+              onCount={setCount}
+              kind={animated ? "animated" : "static"}
+              hasPhoto={Boolean(usePhoto)}
+              characterHint={prompt}
+            />
+          ) : (
+            <View style={s.wrap}>
+              {ACTIONS.map((act) => {
+                const on = actions.includes(act.id);
+                return (
+                  <Pressable key={act.id} onPress={() => toggle(act.id)} style={[s.chip, on && s.chipOn]}>
+                    <Text style={s.emoji}>{act.emojis[0]}</Text>
+                    <Text style={[s.chipText, on && s.chipTextOn]}>{actionName(m, act.id)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </Section>
 
         <Section n={4} title={c.finishing}>
@@ -208,23 +272,26 @@ export default function Create() {
             </View>
             <Switch value={animated} onValueChange={setAnimated} trackColor={{ true: C.brand, false: C.line }} thumbColor="#fff" />
           </View>
-          <View style={[s.toggle, { borderTopWidth: 1, borderColor: C.line }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.toggleTitle}>{c.captions}</Text>
-              <Text style={s.toggleBody}>{fmt(c.captionsBody, { a: actionName(m, "laugh"), b: actionName(m, "shock") })}</Text>
+          {!custom && (
+            <View style={[s.toggle, { borderTopWidth: 1, borderColor: C.line }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.toggleTitle}>{c.captions}</Text>
+                <Text style={s.toggleBody}>{fmt(c.captionsBody, { a: actionName(m, "laugh"), b: actionName(m, "shock") })}</Text>
+              </View>
+              <Switch value={captions} onValueChange={setCaptions} trackColor={{ true: C.brand, false: C.line }} thumbColor="#fff" />
             </View>
-            <Switch value={captions} onValueChange={setCaptions} trackColor={{ true: C.brand, false: C.line }} thumbColor="#fff" />
-          </View>
+          )}
         </Section>
 
+        {restored && !error && <Text style={s.restored}>{c.restored}</Text>}
         {error && <Text style={s.error}>{error}</Text>}
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable style={({ pressed }) => [s.button, (!ready || busy) && s.buttonOff, pressed && { opacity: 0.85 }]} disabled={busy || !ready} onPress={submit}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>{fmt(c.make, { n: actions.length })}</Text>}
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>{fmt(c.make, { n: stickerCount })}</Text>}
         </Pressable>
-        <Text style={s.note}>{ready ? a.takesMinute : source === "photo" ? a.needPhoto : c.needDescription}</Text>
+        <Text style={s.note}>{ready ? a.takesMinute : custom ? m.custom.needPlan : source === "photo" ? a.needPhoto : c.needDescription}</Text>
       </View>
     </View>
   );
@@ -284,6 +351,7 @@ const s = StyleSheet.create({
   toggleTitle: { fontFamily: F.semibold, fontSize: 15, color: C.ink },
   toggleBody: { fontFamily: F.regular, fontSize: 13, color: C.muted, marginTop: 1 },
   error: { fontFamily: F.regular, color: C.danger, textAlign: "center", marginTop: 4 },
+  restored: { fontFamily: F.regular, color: C.ink, backgroundColor: C.brandSoft, borderRadius: 14, padding: 12, textAlign: "center", marginTop: 4, overflow: "hidden" },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line },
   button: { backgroundColor: C.ink, borderRadius: 99, paddingVertical: 17, alignItems: "center" },
   buttonOff: { opacity: 0.35 },
