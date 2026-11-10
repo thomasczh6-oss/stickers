@@ -4,3 +4,4 @@ export * from "./types";
 export * from "./validate";
 export * from "./client";
 export * from "./i18n";
+export * from "./discover";

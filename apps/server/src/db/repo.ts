@@ -1,8 +1,14 @@
 import type { CreatePackRequest, Job, JobStatus, StickerPack } from "@stickers/shared";
 import type { Db } from "./db";
+import { createDiscoverRepo } from "./discover";
 
 /** The create request as stored: the photo lives in file storage, not in the database. */
-export type StoredRequest = Omit<CreatePackRequest, "photo"> & { photoKey?: string; photoMimeType?: string };
+export type StoredRequest = Omit<CreatePackRequest, "photo"> & {
+  photoKey?: string;
+  photoMimeType?: string;
+  /** Discover publication this request remixes. */
+  remixOf?: string;
+};
 
 export interface JobRow {
   id: string;
@@ -35,6 +41,9 @@ export function toJob(row: JobRow): Job {
 
 export function createRepo(db: Db) {
   return {
+    /** Public feed, remixes, reports and moderation (db/discover.ts). */
+    discover: createDiscoverRepo(db),
+
     async insertJob(job: { id: string; deviceId: string; request: StoredRequest; total: number }) {
       const { rows } = await db.query<JobRow>(
         `insert into jobs (id, device_id, status, request, progress_total) values ($1, $2, 'queued', $3, $4) returning *`,

@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import type { Config } from "../config";
 import { type Repo, type StoredRequest, toJob } from "../db/repo";
 import { LocalStorage, type Storage } from "../storage/storage";
+import { mountDiscover } from "./discover";
 
 const DEVICE_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const CONTENT_TYPES: Record<string, string> = { ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".json": "application/json" };
@@ -20,8 +21,8 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
     "/v1/*",
     cors({
       origin: (origin) => (cfg.corsOrigins.includes("*") || cfg.corsOrigins.includes(origin) ? origin : null),
-      allowHeaders: ["content-type", "x-device-id"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowHeaders: ["content-type", "x-device-id", "authorization"],
+      allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     }),
   );
 
@@ -86,6 +87,8 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
     const pack = await repo.getPack(c.req.param("id"));
     return pack ? c.json({ pack }) : c.json({ error: "pack not found" }, 404);
   });
+
+  mountDiscover(app, deps);
 
   // Local development: serve stored files. In production files come from the bucket's CDN.
   if (storage instanceof LocalStorage) {

@@ -21,6 +21,7 @@ export async function processJob(deps: WorkerDeps, row: JobRow): Promise<void> {
       photo,
       onProgress: (done, step) => deps.repo.updateProgress(row.id, done, step),
     });
+    if (req.remixOf) pack.remixOf = req.remixOf;
     await deps.repo.insertPack(row.device_id, pack);
     await deps.repo.finishJob(row.id, pack.id);
   } catch (e) {

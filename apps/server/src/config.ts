@@ -37,6 +37,16 @@ export interface Config {
   maxActiveJobsPerDevice: number;
   corsOrigins: string[];
   publisherName: string;
+  discover: {
+    /** "post": packs go live at once and are checked after reports. "pre": a moderator approves each one first. */
+    review: "post" | "pre";
+    /** Open reports that hide a pack until a moderator looks at it. */
+    autoHideReports: number;
+    /** Packs one device may publish per 24 hours. */
+    publishPerDay: number;
+  };
+  /** Bearer token for the moderation API (/v1/admin/*). Moderation is off when unset. */
+  adminToken?: string;
 }
 
 export function loadConfig(overrides: Partial<Config> = {}): Config {
@@ -88,6 +98,12 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     maxActiveJobsPerDevice: int("MAX_ACTIVE_JOBS_PER_DEVICE", 2),
     corsOrigins: (env("CORS_ORIGINS", "http://localhost:3000") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     publisherName: env("PUBLISHER_NAME", "Stickers AI")!,
+    discover: {
+      review: env("DISCOVER_REVIEW") === "pre" ? "pre" : "post",
+      autoHideReports: int("DISCOVER_AUTO_HIDE_REPORTS", 3),
+      publishPerDay: int("DISCOVER_PUBLISH_PER_DAY", 10),
+    },
+    adminToken: env("ADMIN_TOKEN"),
     ...overrides,
   };
 }
