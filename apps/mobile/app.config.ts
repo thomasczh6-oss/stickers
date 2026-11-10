@@ -38,7 +38,14 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     ["expo-splash-screen", { image: "./assets/images/splash-icon.png", imageWidth: 220, backgroundColor: "#fffaf3" }],
-    ["expo-image-picker", { photosPermission: "Pick a photo to turn into your sticker character." }],
+    [
+      "expo-image-picker",
+      {
+        photosPermission: "Pick a photo to turn into your sticker character.",
+        cameraPermission: "Take a selfie to turn into your sticker character.",
+        microphonePermission: false,
+      },
+    ],
     ["expo-build-properties", { android: { usesCleartextTraffic: allowHttp } }],
   ],
   experiments: { typedRoutes: true },
