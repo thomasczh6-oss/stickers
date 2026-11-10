@@ -1,3 +1,4 @@
+import { isLocale } from "./i18n";
 import { ACTIONS, STYLES } from "./presets";
 import { PACK_IDENTIFIER_PATTERN, WA } from "./spec";
 import type { CreatePackRequest, StickerPack } from "./types";
@@ -79,6 +80,8 @@ export function parseCreatePackRequest(input: unknown): Result<CreatePackRequest
       actions,
       packName: packName || undefined,
       captions: body.captions === true,
+      // An unknown language is not an error: captions just stay in English.
+      locale: isLocale(body.locale) ? body.locale : undefined,
     },
   };
 }

@@ -1,20 +1,17 @@
-import type { Job } from "@stickers/shared";
+import { fmt, type Job } from "@stickers/shared";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { api } from "@/lib/api";
 import { success } from "@/lib/haptics";
+import { useI18n } from "@/lib/i18n";
 import { C, F } from "@/lib/theme";
-
-const TIPS = [
-  "Long-press a sticker in WhatsApp to add it to your favorites.",
-  "Share your pack link and friends can add the same stickers.",
-  "Try the same photo in another style for a whole new pack.",
-];
 
 export default function JobScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { m } = useI18n();
+  const j = m.job;
   const [job, setJob] = useState<Job>();
   const [error, setError] = useState<string>();
   const [tick, setTick] = useState(0);
@@ -51,11 +48,11 @@ export default function JobScreen() {
     return (
       <View style={s.center}>
         <Text style={{ fontSize: 64 }}>😵‍💫</Text>
-        <Text style={s.title}>That one didn’t work</Text>
-        <Text style={s.body}>{job.error ?? "Something went wrong while drawing your stickers."}</Text>
-        <Text style={s.body}>A different photo or a simpler description usually fixes it.</Text>
+        <Text style={s.title}>{j.failedTitle}</Text>
+        <Text style={s.body}>{job.error ?? j.failedBody}</Text>
+        <Text style={s.body}>{j.failedHint}</Text>
         <Pressable style={s.button} onPress={() => router.replace("/create")}>
-          <Text style={s.buttonText}>Try again</Text>
+          <Text style={s.buttonText}>{j.tryAgain}</Text>
         </Pressable>
       </View>
     );
@@ -68,10 +65,10 @@ export default function JobScreen() {
   const pct = done / Math.max(1, total);
   const stage = !job || job.status === "queued" ? 0 : done === 0 ? 1 : done < total - 1 ? 2 : 3;
   const stages = [
-    { label: job?.status === "queued" ? "Waiting for a free artist…" : "Getting started", state: stage > 0 ? "done" : "now" },
-    { label: "Designing your character", state: stage > 1 ? "done" : stage === 1 ? "now" : "todo" },
-    { label: `Animating reactions${stage >= 2 ? ` · ${drawn} of ${stickers}` : ""}`, state: stage > 2 ? "done" : stage === 2 ? "now" : "todo" },
-    { label: "Packing it for WhatsApp", state: stage === 3 ? "now" : "todo" },
+    { key: "start", label: job?.status === "queued" ? j.waiting : j.starting, state: stage > 0 ? "done" : "now" },
+    { key: "design", label: j.designing, state: stage > 1 ? "done" : stage === 1 ? "now" : "todo" },
+    { key: "animate", label: stage >= 2 ? fmt(j.animatingCount, { done: drawn, total: stickers }) : j.animating, state: stage > 2 ? "done" : stage === 2 ? "now" : "todo" },
+    { key: "pack", label: j.packing, state: stage === 3 ? "now" : "todo" },
   ];
 
   return (
@@ -79,14 +76,14 @@ export default function JobScreen() {
       <View style={s.art}>
         <Image source={require("@/assets/images/splash-icon.png")} style={s.artImg} contentFit="contain" />
       </View>
-      <Text style={s.title}>Making your stickers</Text>
-      <Text style={s.body}>About a minute. You can leave; your pack will wait on the home screen.</Text>
+      <Text style={s.title}>{j.title}</Text>
+      <Text style={s.body}>{m.app.job.body}</Text>
       <View style={s.track}>
         <View style={[s.fill, { width: `${Math.max(4, Math.round(pct * 100))}%` }]} />
       </View>
       <View style={s.stages}>
         {stages.map((st) => (
-          <View key={st.label} style={s.stage}>
+          <View key={st.key} style={s.stage}>
             <View style={[s.dot, st.state === "done" && s.dotDone, st.state === "now" && s.dotNow]}>
               {st.state === "done" ? <Text style={s.check}>✓</Text> : st.state === "now" ? <ActivityIndicator size="small" color={C.brand} style={{ transform: [{ scale: 0.6 }] }} /> : null}
             </View>
@@ -96,13 +93,13 @@ export default function JobScreen() {
       </View>
       <View style={s.tip}>
         <Text style={s.tipText}>
-          <Text style={{ fontFamily: F.semibold, color: C.ink }}>Tip: </Text>
-          {TIPS[tick % TIPS.length]}
+          <Text style={{ fontFamily: F.semibold, color: C.ink }}>{j.tipLabel} </Text>
+          {j.tips[tick % j.tips.length]}
         </Text>
       </View>
-      {error && <Text style={s.error}>Connection hiccup, retrying…</Text>}
+      {error && <Text style={s.error}>{j.retrying}</Text>}
       <Pressable onPress={() => router.replace("/")} style={{ alignSelf: "center" }}>
-        <Text style={s.link}>Back to home</Text>
+        <Text style={s.link}>{m.app.job.backHome}</Text>
       </Pressable>
     </View>
   );

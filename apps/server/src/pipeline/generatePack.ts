@@ -1,9 +1,9 @@
-import { findAction, findStyle, toPackIdentifier, validatePackMeta, WA, type Sticker, type StickerPack } from "@stickers/shared";
+import { actionName, DEFAULT_LOCALE, findAction, findStyle, getMessages, toPackIdentifier, validatePackMeta, WA, type Sticker, type StickerPack } from "@stickers/shared";
 import type { StoredRequest } from "../db/repo";
 import { type ImageProvider, ProviderError } from "../providers";
 import type { Storage } from "../storage/storage";
 import { encodeAnimated, encodeStatic, encodeTrayIcon, inspectSticker, pingPong } from "./encode";
-import { composeFrames, removeBackground, sliceGrid } from "./image";
+import { captionFontCovers, composeFrames, removeBackground, sliceGrid } from "./image";
 import { characterPrompt, posePrompt, SHEET, spriteSheetPrompt } from "./prompts";
 
 export interface GenerateDeps {
@@ -59,7 +59,7 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
     const action = findAction(actionId);
     if (!action) throw new Error(`unknown action ${actionId}`);
     const reference = [{ data: character, mimeType: "image/png" }];
-    const caption = request.captions ? action.label : undefined;
+    const caption = request.captions ? captionText(action.id, action.label, request.locale) : undefined;
     try {
       let file: Buffer;
       let firstFrame: Buffer;
@@ -138,8 +138,17 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
   return pack;
 }
 
+/**
+ * The caption in the maker's language, e.g. "¡Hola!" instead of "Hi!". Falls back to the
+ * English label when the caption font can't draw the translation.
+ */
+function captionText(actionId: string, english: string, locale = DEFAULT_LOCALE): string {
+  const text = actionName(getMessages(locale), actionId);
+  return captionFontCovers(text) ? text : english;
+}
+
 function defaultPackName(req: StoredRequest) {
-  const base = req.prompt?.trim() || "My stickers";
+  const base = req.prompt?.trim() || getMessages(req.locale ?? DEFAULT_LOCALE).pack.defaultName;
   const short = base.length > 30 ? `${base.slice(0, 29).trimEnd()}…` : base;
   return short.charAt(0).toUpperCase() + short.slice(1);
 }

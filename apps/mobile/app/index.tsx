@@ -1,4 +1,4 @@
-import type { StickerPack } from "@stickers/shared";
+import { fmt, type StickerPack } from "@stickers/shared";
 import { Image } from "expo-image";
 import { Link, router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -6,6 +6,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "rea
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/lib/api";
 import { tap } from "@/lib/haptics";
+import { useI18n } from "@/lib/i18n";
 import { C, F, shadow } from "@/lib/theme";
 
 const HERO = [
@@ -16,6 +17,8 @@ const HERO = [
 
 export default function Home() {
   const insets = useSafeAreaInsets();
+  const { locale, m } = useI18n();
+  const t = m.app.home;
   const [packs, setPacks] = useState<StickerPack[]>();
   const [error, setError] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
@@ -62,8 +65,8 @@ export default function Home() {
           <View style={s.top}>
             <Image source={require("@/assets/images/icon.png")} style={s.logo} />
             <Text style={s.brand}>Stickers AI</Text>
-            <Pressable onPress={() => router.push("/settings")} hitSlop={12} style={s.settings} accessibilityLabel="Settings">
-              <Text style={s.settingsText}>Settings</Text>
+            <Pressable onPress={() => router.push("/settings")} hitSlop={12} style={s.settings} accessibilityLabel={t.settings}>
+              <Text style={s.settingsText}>{t.settings}</Text>
             </Pressable>
           </View>
 
@@ -73,27 +76,27 @@ export default function Home() {
                 <Image key={i} source={src} style={[s.heroSticker, { transform: [{ rotate: `${(i - 1) * 8}deg` }, { translateY: i === 1 ? -6 : 4 }] }]} />
               ))}
             </View>
-            <Text style={s.heroTitle}>Turn yourself into a sticker pack</Text>
-            <Text style={s.heroBody}>A selfie, your pet or any idea. Six animated reactions, ready for WhatsApp in about a minute.</Text>
+            <Text style={s.heroTitle}>{t.heroTitle}</Text>
+            <Text style={s.heroBody}>{t.heroBody}</Text>
             <Pressable style={({ pressed }) => [s.heroButton, pressed && s.pressed]} onPress={create}>
-              <Text style={s.heroButtonText}>Create a pack</Text>
+              <Text style={s.heroButtonText}>{t.create}</Text>
             </Pressable>
           </View>
 
           <View style={s.sectionRow}>
-            <Text style={s.section}>My packs</Text>
+            <Text style={s.section}>{t.myPacks}</Text>
             {!!packs?.length && <Text style={s.count}>{packs.length}</Text>}
           </View>
           {error && (
             <Pressable onPress={() => router.push("/settings")}>
-              <Text style={s.error}>Can’t reach the server. Pull down to retry, or tap here to check the server address.</Text>
+              <Text style={s.error}>{t.serverError}</Text>
             </Pressable>
           )}
           {packs?.length === 0 && (
             <View style={s.empty}>
               <Image source={require("@/assets/images/styles/cartoon.png")} style={s.emptyImg} />
-              <Text style={s.emptyTitle}>No packs yet</Text>
-              <Text style={s.emptyBody}>Your first pack is about a minute away.</Text>
+              <Text style={s.emptyTitle}>{t.emptyTitle}</Text>
+              <Text style={s.emptyBody}>{t.emptyBody}</Text>
             </View>
           )}
         </View>
@@ -112,7 +115,7 @@ export default function Home() {
                   {item.name}
                 </Text>
                 <Text style={s.cardMeta}>
-                  {item.stickers.length} stickers · {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {fmt(m.pack.stickers, { n: item.stickers.length })} · {new Date(item.createdAt).toLocaleDateString(locale, { month: "short", day: "numeric" })}
                 </Text>
               </View>
               <Text style={s.chev}>›</Text>

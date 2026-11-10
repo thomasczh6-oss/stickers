@@ -1,8 +1,9 @@
-import type { StickerPack } from "@stickers/shared";
+import { fmt, type StickerPack } from "@stickers/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { API_INTERNAL_BASE_URL } from "@/lib/env";
+import { getI18n } from "@/lib/i18n";
 import { AddToWhatsApp } from "./add-to-whatsapp";
 import { ShareButton } from "./share-button";
 
@@ -14,11 +15,12 @@ async function loadPack(id: string): Promise<StickerPack | undefined> {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { m } = await getI18n();
   const pack = await loadPack((await params).id).catch(() => undefined);
-  if (!pack) return { title: "Sticker pack" };
+  if (!pack) return { title: m.web.meta.pack };
   return {
     title: pack.name,
-    description: `${pack.stickers.length} ${pack.animated ? "animated " : ""}stickers for WhatsApp, made with Stickers AI.`,
+    description: fmt(pack.animated ? m.web.meta.animatedPackDescription : m.web.meta.packDescription, { n: pack.stickers.length }),
     openGraph: { images: [pack.stickers[0]?.url ?? "/og.png"] },
     robots: { index: false },
   };
@@ -28,6 +30,7 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const pack = await loadPack(id);
   if (!pack) notFound();
+  const { locale, m } = await getI18n();
 
   return (
     <div className="grid items-start gap-10 pt-10 pb-6 lg:grid-cols-[1fr_360px]">
@@ -40,14 +43,15 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
             <div>
               <h1 className="font-display text-3xl font-extrabold tracking-[-0.02em] md:text-4xl">{pack.name}</h1>
               <p className="mt-0.5 text-sm text-muted">
-                {pack.stickers.length} {pack.animated ? "animated " : ""}stickers · {new Date(pack.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                {fmt(pack.animated ? m.pack.animatedStickers : m.pack.stickers, { n: pack.stickers.length })} ·{" "}
+                {new Date(pack.createdAt).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}
               </p>
             </div>
           </div>
           <div className="flex gap-2">
             <ShareButton name={pack.name} />
             <Link href="/create" className="rounded-full border border-line bg-card px-4 py-2.5 text-sm font-semibold transition hover:border-ink/30">
-              Make another
+              {m.web.pack.makeAnother}
             </Link>
           </div>
         </div>

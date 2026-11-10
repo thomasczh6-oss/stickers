@@ -7,7 +7,7 @@ import sharp from "sharp";
 import { ACTIONS, STYLES, WA } from "@stickers/shared";
 import { inspectSticker } from "../src/pipeline/encode";
 import { generatePack } from "../src/pipeline/generatePack";
-import { addOutline, alignFrames, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
+import { addOutline, alignFrames, captionFontCovers, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
 import { characterPrompt, spriteSheetPrompt } from "../src/pipeline/prompts";
 import { MockImageProvider } from "../src/providers/mock";
 import { LocalStorage } from "../src/storage/storage";
@@ -127,4 +127,9 @@ test("alignFrames pins drifting frames to the first frame's feet", () => {
   const [, c] = alignFrames([box(10, 10), box(40, 50)], "horizontal");
   assert.equal(frameAnchor(c!)!.x, frameAnchor(box(10, 10))!.x);
   assert.equal(frameAnchor(c!)!.y, 80);
+});
+
+test("caption font covers the Western European captions", () => {
+  for (const text of ["¡Hola!", "Je t’aime", "Coucou !", "Oh là là", "Hab dich lieb", "Adoro-te"]) assert.ok(captionFontCovers(text), text);
+  assert.equal(captionFontCovers("哈哈哈"), false);
 });

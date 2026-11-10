@@ -489,6 +489,12 @@ function loadCaptionFont(): opentype.Font {
   return captionFont;
 }
 
+/** True when the caption font has a glyph for every character of the text. */
+export function captionFontCovers(text: string): boolean {
+  const font = loadCaptionFont();
+  return [...text].every((ch) => /\s/.test(ch) || font.charToGlyphIndex(ch) > 0);
+}
+
 /**
  * Prints a caption along the bottom: white letters with a thick dark outline, the classic
  * sticker look. Text is turned into vector paths with the bundled font, so it renders the

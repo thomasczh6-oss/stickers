@@ -1,14 +1,13 @@
 "use client";
 
-import { ACTIONS, CREATE_LIMITS, DEFAULT_ACTIONS, parseCreatePackRequest, STYLE_GROUPS, STYLES, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { useI18n } from "./i18n";
 
 type Photo = { base64: string; mimeType: "image/jpeg"; previewUrl: string };
 type Source = "photo" | "describe";
-
-const IDEAS = ["a sleepy panda chef", "my golden retriever in sunglasses", "a grumpy cat barista", "a tiny astronaut hamster"];
 
 /** Downscales a picked photo to at most 1024px and re-encodes it as JPEG, so uploads stay small. */
 async function preparePhoto(file: File): Promise<Photo> {
@@ -24,6 +23,9 @@ async function preparePhoto(file: File): Promise<Photo> {
 
 export function CreateForm() {
   const router = useRouter();
+  const { locale, m } = useI18n();
+  const c = m.create;
+  const w = m.web.create;
   const fileInput = useRef<HTMLInputElement>(null);
   const [source, setSource] = useState<Source>("photo");
   const [prompt, setPrompt] = useState("");
@@ -43,11 +45,11 @@ export function CreateForm() {
   async function onPhoto(file: File | undefined) {
     setError(undefined);
     if (!file) return;
-    if (!file.type.startsWith("image/")) return setError("That file isn’t an image. Try a JPEG or PNG.");
+    if (!file.type.startsWith("image/")) return setError(w.notImage);
     try {
       setPhoto(await preparePhoto(file));
     } catch {
-      setError("That photo could not be read. Try a JPEG or PNG.");
+      setError(w.unreadable);
     }
   }
 
@@ -65,6 +67,7 @@ export function CreateForm() {
       actions,
       captions,
       packName: packName.trim() || undefined,
+      locale,
     };
     const parsed = parseCreatePackRequest(body);
     if (!parsed.ok) return setError(parsed.errors.join(". "));
@@ -78,12 +81,11 @@ export function CreateForm() {
     }
   }
 
-  const styleLabel = STYLES.find((s) => s.id === style)?.label;
 
   return (
     <form onSubmit={submit} className="mt-10 grid items-start gap-8 lg:grid-cols-[1fr_340px]">
       <div className="grid gap-5">
-        <Step n={1} title="Who’s in your stickers?">
+        <Step n={1} title={c.who}>
           <div role="tablist" className="flex w-fit gap-1 rounded-full bg-paper p-1 ring-1 ring-line">
             {(["photo", "describe"] as const).map((s) => (
               <button
@@ -94,7 +96,7 @@ export function CreateForm() {
                 onClick={() => setSource(s)}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${source === s ? "bg-ink text-white" : "text-muted hover:text-ink"}`}
               >
-                {s === "photo" ? "Upload a photo" : "Describe it"}
+                {s === "photo" ? w.tabPhoto : w.tabDescribe}
               </button>
             ))}
           </div>
@@ -117,34 +119,34 @@ export function CreateForm() {
                 className={`grid aspect-square place-items-center overflow-hidden rounded-[22px] border-2 border-dashed transition ${dragging ? "border-brand bg-brand-soft" : "border-line bg-paper hover:border-ink/30"}`}
               >
                 {photo ? (
-                  <img src={photo.previewUrl} alt="Your photo" className="size-full object-cover" />
+                  <img src={photo.previewUrl} alt={w.yourPhoto} className="size-full object-cover" />
                 ) : (
                   <span className="grid justify-items-center gap-2 px-4 text-center text-sm text-muted">
                     <UploadIcon />
-                    <span className="font-semibold text-ink">Choose a photo</span>
-                    <span>or drag it here</span>
+                    <span className="font-semibold text-ink">{w.choosePhoto}</span>
+                    <span>{w.dragHere}</span>
                   </span>
                 )}
               </button>
               <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={(e) => onPhoto(e.target.files?.[0])} />
               <div className="grid content-start gap-3">
                 <p className="text-sm leading-relaxed text-muted">
-                  A clear, front-facing photo works best: one person or pet, good light, face visible. We use it once and delete it.
+                  {w.photoHint}
                 </p>
                 <label className="text-sm font-semibold" htmlFor="extra">
-                  Anything to add? <span className="font-normal text-muted">(optional)</span>
+                  {w.extra} <span className="font-normal text-muted">{w.optional}</span>
                 </label>
                 <input
                   id="extra"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   maxLength={CREATE_LIMITS.PROMPT_MAX}
-                  placeholder="e.g. give me a superhero cape"
+                  placeholder={w.extraPlaceholder}
                   className="rounded-2xl border border-line bg-paper px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-brand/10"
                 />
                 {photo && (
                   <button type="button" onClick={() => setPhoto(undefined)} className="justify-self-start text-sm font-semibold text-muted underline-offset-4 hover:text-ink hover:underline">
-                    Remove photo
+                    {w.removePhoto}
                   </button>
                 )}
               </div>
@@ -156,12 +158,12 @@ export function CreateForm() {
                 onChange={(e) => setPrompt(e.target.value)}
                 maxLength={CREATE_LIMITS.PROMPT_MAX}
                 rows={3}
-                placeholder="Describe your character, e.g. a chubby corgi wearing a red bandana"
+                placeholder={w.describePlaceholder}
                 className="w-full resize-none rounded-2xl border border-line bg-paper p-4 outline-none focus:border-brand focus:ring-4 focus:ring-brand/10"
               />
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-muted">Try:</span>
-                {IDEAS.map((idea) => (
+                <span className="text-muted">{w.try}</span>
+                {m.ideas.map((idea) => (
                   <button key={idea} type="button" onClick={() => setPrompt(idea)} className="rounded-full border border-line px-3 py-1.5 transition hover:border-ink/30">
                     {idea}
                   </button>
@@ -171,10 +173,10 @@ export function CreateForm() {
           )}
         </Step>
 
-        <Step n={2} title="Pick a style">
+        <Step n={2} title={c.style}>
           {STYLE_GROUPS.map((g) => (
             <div key={g.id} className="mt-1 first:mt-0">
-              <p className="mb-2 text-sm font-semibold text-muted">{g.label}</p>
+              <p className="mb-2 text-sm font-semibold text-muted">{styleGroupName(m, g.id)}</p>
               <div className="mb-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
                 {STYLES.filter((s) => s.group === g.id).map((s) => {
                   const on = style === s.id;
@@ -187,7 +189,7 @@ export function CreateForm() {
                       className={`rounded-[20px] border-2 p-1.5 text-left transition ${on ? "border-brand bg-brand-soft" : "border-transparent hover:border-line"}`}
                     >
                       <img src={`/styles/${s.id}.webp`} alt="" width={160} height={160} className="aspect-square w-full rounded-[14px] bg-paper" />
-                      <span className="mt-1.5 block px-1 pb-0.5 text-sm font-semibold">{s.label}</span>
+                      <span className="mt-1.5 block px-1 pb-0.5 text-sm font-semibold">{styleName(m, s.id)}</span>
                     </button>
                   );
                 })}
@@ -198,10 +200,10 @@ export function CreateForm() {
 
         <Step
           n={3}
-          title="Choose your reactions"
+          title={c.reactions}
           aside={
             <span className="text-sm text-muted">
-              {actions.length} of {CREATE_LIMITS.MAX_ACTIONS} · pick at least {CREATE_LIMITS.MIN_ACTIONS}
+              {fmt(c.reactionsCount, { n: actions.length, max: CREATE_LIMITS.MAX_ACTIONS })} · {fmt(c.reactionsMin, { min: CREATE_LIMITS.MIN_ACTIONS })}
             </span>
           }
         >
@@ -217,34 +219,39 @@ export function CreateForm() {
                   className={`flex items-center gap-2 rounded-full border py-2 pr-4 pl-2.5 text-sm font-semibold transition ${on ? "border-ink bg-ink text-white" : "border-line bg-card hover:border-ink/30"}`}
                 >
                   <span className="text-lg leading-none">{a.emojis[0]}</span>
-                  {a.label}
+                  {actionName(m, a.id)}
                 </button>
               );
             })}
           </div>
         </Step>
 
-        <Step n={4} title="Finishing touches">
+        <Step n={4} title={c.finishing}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Toggle checked={animated} onChange={setAnimated} title="Animated" body="Each sticker loops a short motion" />
-            <Toggle checked={captions} onChange={setCaptions} title="Captions" body="Adds “LOL”, “OMG”… under each one" />
+            <Toggle checked={animated} onChange={setAnimated} title={c.animated} body={c.animatedBody} />
+            <Toggle
+              checked={captions}
+              onChange={setCaptions}
+              title={c.captions}
+              body={fmt(c.captionsBody, { a: actionName(m, "laugh"), b: actionName(m, "shock") })}
+            />
           </div>
           <label className="mt-5 block text-sm font-semibold" htmlFor="name">
-            Pack name <span className="font-normal text-muted">(optional)</span>
+            {w.packName} <span className="font-normal text-muted">{w.optional}</span>
           </label>
           <input
             id="name"
             value={packName}
             onChange={(e) => setPackName(e.target.value)}
             maxLength={CREATE_LIMITS.PACK_NAME_MAX}
-            placeholder="e.g. Biscuit’s moods"
+            placeholder={w.packNamePlaceholder}
             className="mt-2 w-full rounded-2xl border border-line bg-paper px-4 py-3 outline-none focus:border-brand focus:ring-4 focus:ring-brand/10"
           />
         </Step>
       </div>
 
       <aside className="sticky top-24 rounded-[28px] border border-line bg-card p-6 shadow-[0_24px_60px_-36px_rgba(22,18,29,0.4)]">
-        <p className="text-sm font-semibold text-muted">Your pack</p>
+        <p className="text-sm font-semibold text-muted">{w.yourPack}</p>
         <div className="mt-4 flex items-center gap-4">
           <div className="size-20 shrink-0 overflow-hidden rounded-2xl bg-paper">
             {usePhoto ? (
@@ -256,13 +263,13 @@ export function CreateForm() {
           <div>
             <div className="font-display text-3xl font-extrabold">{actions.length}</div>
             <div className="text-sm text-muted">
-              {animated ? "animated" : "still"} {styleLabel?.toLowerCase()} stickers
+              {fmt(animated ? w.summaryAnimated : w.summaryStill, { style: styleName(m, style) })}
             </div>
           </div>
         </div>
         <div className="mt-5 flex flex-wrap gap-1.5 text-xl">
           {actions.map((id) => (
-            <span key={id} title={ACTIONS.find((a) => a.id === id)?.label}>
+            <span key={id} title={actionName(m, id)}>
               {ACTIONS.find((a) => a.id === id)?.emojis[0]}
             </span>
           ))}
@@ -272,10 +279,10 @@ export function CreateForm() {
           disabled={busy || !ready}
           className="mt-6 w-full rounded-full bg-ink px-6 py-4 font-semibold text-white transition enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "Starting…" : `Make ${actions.length} stickers`}
+          {busy ? c.starting : fmt(c.make, { n: actions.length })}
         </button>
         <p className="mt-3 text-center text-xs text-muted">
-          {ready ? "Takes about a minute." : source === "photo" ? "Add a photo or switch to Describe it." : "Describe your character to start."}
+          {ready ? c.takesMinute : source === "photo" ? w.needPhoto : c.needDescription}
         </p>
       </aside>
     </form>

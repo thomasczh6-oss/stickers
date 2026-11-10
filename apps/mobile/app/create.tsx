@@ -1,4 +1,4 @@
-import { ACTIONS, CREATE_LIMITS, DEFAULT_ACTIONS, parseCreatePackRequest, STYLE_GROUPS, STYLES, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -8,6 +8,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, Tex
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/lib/api";
 import { tap } from "@/lib/haptics";
+import { useI18n } from "@/lib/i18n";
 import { C, F } from "@/lib/theme";
 
 type Photo = { uri: string; base64: string };
@@ -25,8 +26,6 @@ const STYLE_IMAGES: Record<StyleId, number> = {
   retro: require("@/assets/images/styles/retro.png"),
 };
 
-const IDEAS = ["a sleepy panda chef", "a grumpy cat barista", "a tiny astronaut hamster"];
-
 /** Square crop from the picker, then at most 1024px as JPEG to keep the upload small. */
 async function pickPhoto(): Promise<Photo | undefined> {
   const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 1 });
@@ -41,6 +40,9 @@ async function pickPhoto(): Promise<Photo | undefined> {
 
 export default function Create() {
   const insets = useSafeAreaInsets();
+  const { locale, m } = useI18n();
+  const c = m.create;
+  const a = m.app.create;
   const [source, setSource] = useState<Source>("photo");
   const [photo, setPhoto] = useState<Photo>();
   const [prompt, setPrompt] = useState("");
@@ -69,6 +71,7 @@ export default function Create() {
       kind: animated ? "animated" : "static",
       actions,
       captions,
+      locale,
     });
     if (!parsed.ok) return setError(parsed.errors.join(". "));
     setBusy(true);
@@ -84,7 +87,7 @@ export default function Create() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[s.page, { paddingBottom: insets.bottom + 120 }]} keyboardShouldPersistTaps="handled">
-        <Section n={1} title="Who’s in your stickers?">
+        <Section n={1} title={c.who}>
           <View style={s.segment}>
             {(["photo", "describe"] as const).map((k) => (
               <Pressable
@@ -95,7 +98,7 @@ export default function Create() {
                 }}
                 style={[s.segmentItem, source === k && s.segmentOn]}
               >
-                <Text style={[s.segmentText, source === k && s.segmentTextOn]}>{k === "photo" ? "Photo" : "Describe"}</Text>
+                <Text style={[s.segmentText, source === k && s.segmentTextOn]}>{k === "photo" ? a.tabPhoto : a.tabDescribe}</Text>
               </Pressable>
             ))}
           </View>
@@ -119,17 +122,17 @@ export default function Create() {
                 ) : (
                   <>
                     <Text style={s.photoPlus}>+</Text>
-                    <Text style={s.photoText}>Choose photo</Text>
+                    <Text style={s.photoText}>{a.choosePhoto}</Text>
                   </>
                 )}
               </Pressable>
               <View style={{ flex: 1, gap: 8 }}>
-                <Text style={s.hint}>One person or pet, face visible, good light. Used once, then deleted.</Text>
+                <Text style={s.hint}>{a.photoHint}</Text>
                 <TextInput
                   style={s.inputSmall}
                   value={prompt}
                   onChangeText={setPrompt}
-                  placeholder="Add a detail (optional)"
+                  placeholder={a.detailPlaceholder}
                   placeholderTextColor={C.muted}
                   maxLength={CREATE_LIMITS.PROMPT_MAX}
                 />
@@ -141,13 +144,13 @@ export default function Create() {
                 style={s.input}
                 value={prompt}
                 onChangeText={setPrompt}
-                placeholder="e.g. a chubby corgi wearing a red bandana"
+                placeholder={a.describePlaceholder}
                 placeholderTextColor={C.muted}
                 multiline
                 maxLength={CREATE_LIMITS.PROMPT_MAX}
               />
               <View style={s.wrap}>
-                {IDEAS.map((idea) => (
+                {m.ideas.slice(0, 3).map((idea) => (
                   <Pressable key={idea} onPress={() => setPrompt(idea)} style={s.idea}>
                     <Text style={s.ideaText}>{idea}</Text>
                   </Pressable>
@@ -157,10 +160,10 @@ export default function Create() {
           )}
         </Section>
 
-        <Section n={2} title="Pick a style">
+        <Section n={2} title={c.style}>
           {STYLE_GROUPS.map((g) => (
             <View key={g.id}>
-              <Text style={s.styleGroup}>{g.label}</Text>
+              <Text style={s.styleGroup}>{styleGroupName(m, g.id)}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.styles} style={s.stylesScroll}>
                 {STYLES.filter((st) => st.group === g.id).map((st) => {
                   const on = style === st.id;
@@ -174,7 +177,7 @@ export default function Create() {
                       style={[s.styleCard, on && s.styleCardOn]}
                     >
                       <Image source={STYLE_IMAGES[st.id]} style={s.styleImg} contentFit="contain" />
-                      <Text style={s.styleLabel}>{st.label}</Text>
+                      <Text style={s.styleLabel}>{styleName(m, st.id)}</Text>
                     </Pressable>
                   );
                 })}
@@ -183,32 +186,32 @@ export default function Create() {
           ))}
         </Section>
 
-        <Section n={3} title="Reactions" aside={`${actions.length} of ${CREATE_LIMITS.MAX_ACTIONS}`}>
+        <Section n={3} title={c.reactionsShort} aside={fmt(c.reactionsCount, { n: actions.length, max: CREATE_LIMITS.MAX_ACTIONS })}>
           <View style={s.wrap}>
-            {ACTIONS.map((a) => {
-              const on = actions.includes(a.id);
+            {ACTIONS.map((act) => {
+              const on = actions.includes(act.id);
               return (
-                <Pressable key={a.id} onPress={() => toggle(a.id)} style={[s.chip, on && s.chipOn]}>
-                  <Text style={s.emoji}>{a.emojis[0]}</Text>
-                  <Text style={[s.chipText, on && s.chipTextOn]}>{a.label}</Text>
+                <Pressable key={act.id} onPress={() => toggle(act.id)} style={[s.chip, on && s.chipOn]}>
+                  <Text style={s.emoji}>{act.emojis[0]}</Text>
+                  <Text style={[s.chipText, on && s.chipTextOn]}>{actionName(m, act.id)}</Text>
                 </Pressable>
               );
             })}
           </View>
         </Section>
 
-        <Section n={4} title="Finishing touches">
+        <Section n={4} title={c.finishing}>
           <View style={s.toggle}>
             <View style={{ flex: 1 }}>
-              <Text style={s.toggleTitle}>Animated</Text>
-              <Text style={s.toggleBody}>Each sticker loops a short motion</Text>
+              <Text style={s.toggleTitle}>{c.animated}</Text>
+              <Text style={s.toggleBody}>{c.animatedBody}</Text>
             </View>
             <Switch value={animated} onValueChange={setAnimated} trackColor={{ true: C.brand, false: C.line }} thumbColor="#fff" />
           </View>
           <View style={[s.toggle, { borderTopWidth: 1, borderColor: C.line }]}>
             <View style={{ flex: 1 }}>
-              <Text style={s.toggleTitle}>Captions</Text>
-              <Text style={s.toggleBody}>Adds “LOL”, “OMG”… under each one</Text>
+              <Text style={s.toggleTitle}>{c.captions}</Text>
+              <Text style={s.toggleBody}>{fmt(c.captionsBody, { a: actionName(m, "laugh"), b: actionName(m, "shock") })}</Text>
             </View>
             <Switch value={captions} onValueChange={setCaptions} trackColor={{ true: C.brand, false: C.line }} thumbColor="#fff" />
           </View>
@@ -219,9 +222,9 @@ export default function Create() {
 
       <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable style={({ pressed }) => [s.button, (!ready || busy) && s.buttonOff, pressed && { opacity: 0.85 }]} disabled={busy || !ready} onPress={submit}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>Make {actions.length} stickers</Text>}
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>{fmt(c.make, { n: actions.length })}</Text>}
         </Pressable>
-        <Text style={s.note}>{ready ? "Takes about a minute" : source === "photo" ? "Choose a photo, or describe your character" : "Describe your character to start"}</Text>
+        <Text style={s.note}>{ready ? a.takesMinute : source === "photo" ? a.needPhoto : c.needDescription}</Text>
       </View>
     </View>
   );

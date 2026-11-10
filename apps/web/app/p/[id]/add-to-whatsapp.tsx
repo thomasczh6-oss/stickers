@@ -2,6 +2,7 @@
 
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n";
 import { APP_SCHEME, APP_STORE_URL, PLAY_STORE_URL, SITE_URL } from "@/lib/env";
 
 type Platform = "ios" | "android" | "desktop";
@@ -18,6 +19,8 @@ function detect(): Platform {
  * hands the pack to our mobile app: a deep link on phones, a QR code on desktop.
  */
 export function AddToWhatsApp({ packId }: { packId: string }) {
+  const { m } = useI18n();
+  const t = m.web.pack;
   const [platform, setPlatform] = useState<Platform>();
   const [tried, setTried] = useState(false);
   useEffect(() => setPlatform(detect()), []);
@@ -32,10 +35,10 @@ export function AddToWhatsApp({ packId }: { packId: string }) {
 
   return (
     <div className="rounded-[28px] border border-line bg-card p-6 shadow-[0_24px_60px_-36px_rgba(22,18,29,0.4)]">
-      <h2 className="font-display text-2xl font-bold tracking-tight">Add to WhatsApp</h2>
+      <h2 className="font-display text-2xl font-bold tracking-tight">{m.pack.addToWhatsApp}</h2>
       {platform === "desktop" ? (
         <>
-          <p className="mt-2 text-sm leading-relaxed text-muted">Scan with your phone’s camera. The pack opens in the free Stickers AI app, ready to add.</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted">{t.desktopBody}</p>
           <div className="mt-5 grid place-items-center rounded-[22px] bg-paper p-6">
             <div className="rounded-2xl bg-white p-3 shadow-sm">
               <QRCodeSVG value={pageUrl} size={184} bgColor="#ffffff" fgColor="#16121d" level="M" />
@@ -44,26 +47,26 @@ export function AddToWhatsApp({ packId }: { packId: string }) {
         </>
       ) : (
         <>
-          <p className="mt-2 text-sm leading-relaxed text-muted">WhatsApp adds sticker packs through our free app. It opens right on this pack.</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted">{t.mobileBody}</p>
           <button onClick={open} className="mt-5 w-full rounded-full bg-ink px-6 py-4 font-semibold text-white">
-            Open in the app
+            {t.openInApp}
           </button>
           {tried && (
             <p className="mt-4 text-sm text-muted">
-              Nothing happened?{" "}
+              {t.nothingHappened}{" "}
               {storeUrl ? (
                 <a href={storeUrl} className="font-semibold text-ink underline underline-offset-4">
-                  Get the app
+                  {t.getApp}
                 </a>
               ) : (
-                "The app is coming soon to the App Store and Google Play."
+                t.comingSoon
               )}
             </p>
           )}
         </>
       )}
       <ol className="mt-6 grid gap-3 text-sm">
-        {["Open the pack in the Stickers AI app", "Tap Add to WhatsApp and confirm", "Find it in your WhatsApp sticker tray"].map((t, i) => (
+        {t.steps.map((t, i) => (
           <li key={t} className="flex items-center gap-3">
             <span className="grid size-6 shrink-0 place-items-center rounded-full bg-sun text-xs font-bold">{i + 1}</span>
             {t}
