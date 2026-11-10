@@ -2,8 +2,10 @@ import { findAction, findStyle, toPackIdentifier, validatePackMeta, WA, type Sti
 import type { StoredRequest } from "../db/repo";
 import { type ImageProvider, ProviderError } from "../providers";
 import type { Storage } from "../storage/storage";
-import { encodeAnimated, encodeStatic, encodeTrayIcon, inspectSticker, pingPong } from "./encode";
-import { composeFrames, removeBackground, sliceGrid } from "./image";
+import { encodeClip } from "./animate";
+import { encodeStatic, encodeTrayIcon, inspectSticker } from "./encode";
+import { composeFrames, placeFrames, removeBackground, sliceGrid } from "./image";
+import type { Interpolator } from "./interpolate";
 import { characterPrompt, posePrompt, SHEET, spriteSheetPrompt } from "./prompts";
 
 export interface GenerateDeps {
@@ -11,6 +13,8 @@ export interface GenerateDeps {
   storage: Storage;
   publisherName: string;
   stickerConcurrency: number;
+  /** Draws in-between frames so animations play smoothly. Without it, only the model's frames are used. */
+  interpolator?: Interpolator;
 }
 
 export interface GenerateInput {
@@ -20,10 +24,6 @@ export interface GenerateInput {
   onProgress?: (done: number, step: string) => Promise<void> | void;
 }
 
-/** Delay between frames of a sprite-sheet animation. 4 frames ping-ponged = 6 frames, about 0.7s per loop. */
-/** Frame timing: the key pose holds a moment (it is also the still WhatsApp shows), the in-betweens move quickly. */
-const KEY_FRAME_MS = 420;
-const FRAME_MS = 100;
 const GEN_SIZE = "1024x1024";
 
 /**
@@ -75,10 +75,10 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
         await deps.storage.put(`${prefix}/source/${action.id}-sheet.png`, sheet, "image/png");
         const cells = await sliceGrid(sheet, SHEET.columns, SHEET.rows);
         const keyed = await Promise.all(cells.map((c) => removeBackground(c)));
-        const frames = await composeFrames(keyed, { outline: true, caption, align: LEAVES_GROUND.has(action.id) ? "horizontal" : "feet" });
-        firstFrame = frames[0]!;
-        const seq = pingPong(frames);
-        file = await encodeAnimated(seq, seq.map((_, i) => (i === 0 ? KEY_FRAME_MS : FRAME_MS)));
+        const placed = await placeFrames(keyed, { outline: true, caption, align: LEAVES_GROUND.has(action.id) ? "horizontal" : "feet" });
+        const clip = await encodeClip(placed, { outline: true, caption }, deps.interpolator);
+        firstFrame = clip.firstFrame;
+        file = clip.file;
       } else {
         const img = await withRetry(() =>
           deps.provider.image({ prompt: posePrompt({ style, action }), images: reference, size: GEN_SIZE, intent: { kind: "pose", label: action.label } }),

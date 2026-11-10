@@ -32,7 +32,14 @@ export interface Config {
     quality: "low" | "medium" | "high" | "auto";
     timeoutMs: number;
   };
-  worker: { enabled: boolean; jobConcurrency: number; stickerConcurrency: number; pollMs: number };
+  worker: {
+    enabled: boolean;
+    jobConcurrency: number;
+    stickerConcurrency: number;
+    pollMs: number;
+    /** Add optical-flow in-between frames to animated stickers (smoother motion, no extra AI cost). */
+    smoothMotion: boolean;
+  };
   /** Max jobs a single device may have queued or running at once. */
   maxActiveJobsPerDevice: number;
   corsOrigins: string[];
@@ -84,6 +91,7 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
       jobConcurrency: int("WORKER_JOB_CONCURRENCY", 2),
       stickerConcurrency: int("WORKER_STICKER_CONCURRENCY", 3),
       pollMs: int("WORKER_POLL_MS", 1000),
+      smoothMotion: env("SMOOTH_MOTION", "true") !== "false",
     },
     maxActiveJobsPerDevice: int("MAX_ACTIVE_JOBS_PER_DEVICE", 2),
     corsOrigins: (env("CORS_ORIGINS", "http://localhost:3000") ?? "").split(",").map((s) => s.trim()).filter(Boolean),

@@ -7,7 +7,8 @@ import sharp from "sharp";
 import { ACTIONS, STYLES, WA } from "@stickers/shared";
 import { inspectSticker } from "../src/pipeline/encode";
 import { generatePack } from "../src/pipeline/generatePack";
-import { addOutline, alignFrames, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
+import { addOutline, alignFrames, alphaBounds, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
+import { FlowInterpolator, type Interpolator } from "../src/pipeline/interpolate";
 import { characterPrompt, spriteSheetPrompt } from "../src/pipeline/prompts";
 import { MockImageProvider } from "../src/providers/mock";
 import { LocalStorage } from "../src/storage/storage";
@@ -67,12 +68,14 @@ test("outline adds a white border around the character", async () => {
   assert.equal(px(5, 5)[3], 0);
 });
 
-async function makePack(kind: "animated" | "static", captions: boolean) {
+const flow = new FlowInterpolator();
+
+async function makePack(kind: "animated" | "static", captions: boolean, interpolator?: Interpolator) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "stickers-test-"));
   const storage = new LocalStorage(dir, "http://test.local");
   const steps: string[] = [];
   const pack = await generatePack(
-    { provider: new MockImageProvider(), storage, publisherName: "Test", stickerConcurrency: 3 },
+    { provider: new MockImageProvider(), storage, publisherName: "Test", stickerConcurrency: 3, interpolator },
     {
       packId: "pk_test",
       request: { prompt: "a happy corgi", style: "cartoon", kind, actions: ["wave", "laugh", "love", "cry"], captions },
@@ -84,8 +87,8 @@ async function makePack(kind: "animated" | "static", captions: boolean) {
   return { pack, dir, steps };
 }
 
-test("animated pack: every sticker is a valid WhatsApp animated WebP", async () => {
-  const { pack, dir, steps } = await makePack("animated", true);
+test("animated pack: every sticker is a smooth, valid WhatsApp animated WebP", async () => {
+  const { pack, dir, steps } = await makePack("animated", true, flow);
   assert.equal(pack.animated, true);
   assert.equal(pack.stickers.length, 4);
   assert.deepEqual(steps, ["character", ...steps.slice(1, 5), "packaging"]);
@@ -93,7 +96,10 @@ test("animated pack: every sticker is a valid WhatsApp animated WebP", async () 
     const file = await fs.readFile(path.join(dir, "packs/pk_test", s.fileName));
     assert.deepEqual(await inspectSticker(file, true), [], s.fileName);
     const meta = await sharp(file, { animated: true }).metadata();
-    assert.equal(meta.pages, 6, "4 frames played forward and back");
+    // 6 drawn frames + 2 in-betweens per step, forward and back = 30 (libwebp merges repeats of the mock's still frames).
+    assert.ok(meta.pages! > 10, `in-between frames were added (${meta.pages} frames)`);
+    assert.equal(meta.delay![0], 420, "the key pose holds");
+    assert.ok(meta.delay!.slice(1).every((d) => d % 33 === 0 || d % 34 === 0), `in-betweens play at ~30 fps: ${meta.delay}`);
     assert.ok(file.length <= WA.ANIMATED_MAX_BYTES);
     // Corners must be transparent after keying.
     const first = await sharp(file, { page: 0 }).ensureAlpha().raw().toBuffer();
@@ -127,4 +133,25 @@ test("alignFrames pins drifting frames to the first frame's feet", () => {
   const [, c] = alignFrames([box(10, 10), box(40, 50)], "horizontal");
   assert.equal(frameAnchor(c!)!.x, frameAnchor(box(10, 10))!.x);
   assert.equal(frameAnchor(c!)!.y, 80);
+});
+
+test("animated pack falls back to the drawn frames when in-betweens fail", async () => {
+  const broken: Interpolator = { inbetweens: async () => Promise.reject(new Error("boom")) };
+  const { pack, dir } = await makePack("animated", false, broken);
+  for (const s of pack.stickers) {
+    const file = await fs.readFile(path.join(dir, "packs/pk_test", s.fileName));
+    assert.deepEqual(await inspectSticker(file, true), [], s.fileName);
+    const meta = await sharp(file, { animated: true }).metadata();
+    assert.equal(meta.pages, 6, "only the drawn frames, forward and back (repeats merged)");
+  }
+});
+
+test("in-between frames follow the motion halfway", async () => {
+  const square = async (x: number) =>
+    toRgba(await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect x="${x}" y="96" width="64" height="64" fill="#d03030"/><rect x="${x + 16}" y="112" width="16" height="16" fill="#202020"/></svg>`)).png().toBuffer());
+  const pairs = await flow.inbetweens([await square(60), await square(110)], [0.5]);
+  const b = alphaBounds(pairs[0]![0]!, 128)!;
+  const centre = b.left + b.width / 2;
+  assert.ok(Math.abs(centre - (85 + 32)) <= 6, `square centre ${centre} is halfway`);
+  assert.ok(b.width <= 64 + 12, `one square, not two ghosts (width ${b.width})`);
 });
