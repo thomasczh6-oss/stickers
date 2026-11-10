@@ -29,10 +29,14 @@ export interface Config {
     baseUrl: string;
     apiKey?: string;
     imageModel: string;
+    /** Chat model that turns a user's description into a sticker plan. */
+    textModel: string;
     quality: "low" | "medium" | "high" | "auto";
     timeoutMs: number;
   };
   worker: { enabled: boolean; jobConcurrency: number; stickerConcurrency: number; pollMs: number };
+  /** Max sticker plans a single device may ask for per hour. */
+  maxPlansPerDevicePerHour: number;
   /** Max jobs a single device may have queued or running at once. */
   maxActiveJobsPerDevice: number;
   corsOrigins: string[];
@@ -76,6 +80,7 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
         .replace(/\/v1$/, ""),
       apiKey,
       imageModel: env("IMAGE_MODEL", "gpt-image-2.6-flare")!,
+      textModel: env("TEXT_MODEL", "gpt-5.4-mini")!,
       quality: quality === "low" || quality === "high" || quality === "auto" ? quality : "medium",
       timeoutMs: int("GATEWAY_TIMEOUT_MS", 240_000),
     },
@@ -85,6 +90,7 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
       stickerConcurrency: int("WORKER_STICKER_CONCURRENCY", 3),
       pollMs: int("WORKER_POLL_MS", 1000),
     },
+    maxPlansPerDevicePerHour: int("MAX_PLANS_PER_DEVICE_PER_HOUR", 30),
     maxActiveJobsPerDevice: int("MAX_ACTIVE_JOBS_PER_DEVICE", 2),
     corsOrigins: (env("CORS_ORIGINS", "http://localhost:3000") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     publisherName: env("PUBLISHER_NAME", "Stickers AI")!,

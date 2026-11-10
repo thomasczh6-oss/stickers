@@ -1,4 +1,4 @@
-import type { CreatePackRequest, Job, StickerPack } from "./types";
+import type { CreatePackRequest, Job, PlanRequest, StickerPack, StickerPlan } from "./types";
 
 export class ApiRequestError extends Error {
   constructor(
@@ -32,6 +32,8 @@ export function createApiClient(baseUrl: string, deviceId: string) {
 
   const api = {
     createPack: (req: CreatePackRequest) => call<{ job: Job }>("/v1/packs", { method: "POST", body: JSON.stringify(req) }),
+    /** Turns a free-text idea into an editable list of stickers. Takes a few seconds. */
+    planPack: (req: PlanRequest) => call<{ plan: StickerPlan }>("/v1/plan", { method: "POST", body: JSON.stringify(req) }),
     getJob: (jobId: string) => call<{ job: Job }>(`/v1/jobs/${encodeURIComponent(jobId)}`),
     getPack: (packId: string) => call<{ pack: StickerPack }>(`/v1/packs/${encodeURIComponent(packId)}`),
     listMyPacks: () => call<{ packs: StickerPack[] }>("/v1/packs"),

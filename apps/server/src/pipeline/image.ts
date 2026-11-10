@@ -445,11 +445,47 @@ export async function addOutline(png: Buffer, radius = 8): Promise<Buffer> {
   return sharp(out, { raw: { width: w, height: h, channels: 4 } }).png().toBuffer();
 }
 
-let captionFont: opentype.Font | undefined;
-function loadCaptionFont(): opentype.Font {
-  // Lilita One (SIL Open Font License): chunky, rounded and readable at sticker size.
-  captionFont ??= opentype.loadSync(fileURLToPath(new URL("../../assets/fonts/LilitaOne-Regular.ttf", import.meta.url)));
-  return captionFont;
+let captionFonts: opentype.Font[] | undefined;
+/**
+ * Caption fonts, tried in order for each character:
+ * Lilita One (chunky and rounded, Latin scripts), then Noto Sans CJK Black (Chinese, Japanese, Korean).
+ * Both are SIL Open Font License. The CJK font is large (~18MB), so it loads on first use only.
+ */
+function loadCaptionFonts(): opentype.Font[] {
+  captionFonts ??= ["LilitaOne-Regular.ttf", "NotoSansCJKsc-Black.otf"].map((f) =>
+    opentype.loadSync(fileURLToPath(new URL(`../../assets/fonts/${f}`, import.meta.url))),
+  );
+  return captionFonts;
+}
+
+/** CJK glyphs fill more of the em box than Lilita's letters; shrink them a little so both look the same size. */
+const FONT_SCALE = [1, 0.86];
+
+/** Splits a caption into runs that each use one font. Characters no font can draw are left out. */
+function captionRuns(text: string): { font: number; text: string }[] {
+  const fonts = loadCaptionFonts();
+  const runs: { font: number; text: string }[] = [];
+  for (const ch of Array.from(text)) {
+    const font = ch === " " ? (runs[runs.length - 1]?.font ?? 0) : fonts.findIndex((f) => f.charToGlyphIndex(ch) > 0);
+    if (font < 0) continue;
+    const last = runs[runs.length - 1];
+    if (last && last.font === font) last.text += ch;
+    else runs.push({ font, text: ch });
+  }
+  return runs;
+}
+
+/**
+ * Keeps only the characters the caption fonts can draw (Latin scripts and CJK), so a caption
+ * with emoji does not come out as empty boxes. Returns undefined when nothing is left.
+ */
+export function fitCaption(text: string): string | undefined {
+  const kept = captionRuns(text)
+    .map((r) => r.text)
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /[\p{L}\p{N}]/u.test(kept) ? kept : undefined;
 }
 
 /**
@@ -458,14 +494,20 @@ function loadCaptionFont(): opentype.Font {
  * same on every server whatever fonts are installed.
  */
 async function addCaption(png: Buffer, text: string): Promise<Buffer> {
-  const font = loadCaptionFont();
+  const fonts = loadCaptionFonts();
+  const runs = captionRuns(text);
   const maxWidth = S - 60;
-  let size = 84;
-  const width = (sz: number) => font.getAdvanceWidth(text, sz);
-  while (size > 40 && width(size) > maxWidth) size -= 2;
-  const x = (S - width(size)) / 2;
+  const width = (sz: number) => runs.reduce((w, r) => w + fonts[r.font]!.getAdvanceWidth(r.text, sz * FONT_SCALE[r.font]!), 0);
+  // Largest size up to 84px that fits; long captions go down to 30px.
+  const size = Math.max(30, Math.min(84, Math.floor((maxWidth / width(100)) * 100)));
+  let x = (S - width(size)) / 2;
   const baseline = S - 30;
-  const d = font.getPath(text, x, baseline, size).toPathData(2);
+  let d = "";
+  for (const r of runs) {
+    const sz = size * FONT_SCALE[r.font]!;
+    d += fonts[r.font]!.getPath(r.text, x, baseline, sz).toPathData(2);
+    x += fonts[r.font]!.getAdvanceWidth(r.text, sz);
+  }
   const stroke = Math.round(size * 0.2);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}">
     <path d="${d}" transform="translate(0 5)" fill="#1a1325" fill-opacity="0.35" stroke="#1a1325" stroke-opacity="0.35" stroke-width="${stroke}" stroke-linejoin="round"/>

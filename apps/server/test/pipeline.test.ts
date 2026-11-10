@@ -7,7 +7,7 @@ import sharp from "sharp";
 import { WA } from "@stickers/shared";
 import { inspectSticker } from "../src/pipeline/encode";
 import { generatePack } from "../src/pipeline/generatePack";
-import { addOutline, alignFrames, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
+import { addOutline, alignFrames, fitCaption, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
 import { MockImageProvider } from "../src/providers/mock";
 import { LocalStorage } from "../src/storage/storage";
 
@@ -113,4 +113,13 @@ test("alignFrames pins drifting frames to the first frame's feet", () => {
   const [, c] = alignFrames([box(10, 10), box(40, 50)], "horizontal");
   assert.equal(frameAnchor(c!)!.x, frameAnchor(box(10, 10))!.x);
   assert.equal(frameAnchor(c!)!.y, 80);
+});
+
+test("captions keep only what the fonts can draw (Latin and CJK)", () => {
+  assert.equal(fitCaption("KO!"), "KO!");
+  assert.equal(fitCaption("¡Olé, señor!"), "¡Olé, señor!");
+  assert.equal(fitCaption("拳击 KO 🥊"), "拳击 KO");
+  assert.equal(fitCaption("頑張って"), "頑張って");
+  assert.equal(fitCaption("화이팅!"), "화이팅!");
+  assert.equal(fitCaption("🥊🔥"), undefined);
 });
