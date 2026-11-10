@@ -1,20 +1,49 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { parseCreatePackRequest, ACTIONS, STYLES } from "@stickers/shared";
+import { parseCreatePackRequest, ACTIONS, STYLES, type StickerPack } from "@stickers/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { nanoid } from "nanoid";
 import type { Config } from "../config";
 import { type Repo, type StoredRequest, toJob } from "../db/repo";
+import { createExporter } from "../export/exports";
+import type { TelegramBot } from "../telegram/bot";
 import { LocalStorage, type Storage } from "../storage/storage";
 
 const DEVICE_ID = /^[A-Za-z0-9_-]{8,64}$/;
-const CONTENT_TYPES: Record<string, string> = { ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".json": "application/json" };
+const CONTENT_TYPES: Record<string, string> = {
+  ".webp": "image/webp",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".jpg": "image/jpeg",
+  ".json": "application/json",
+  ".zip": "application/zip",
+};
+const SHARE_FILE = /^(\d{1,3})\.(gif|png)$/;
 
-export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
-  const { cfg, repo, storage } = deps;
+export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage; telegram?: TelegramBot }) {
+  const { cfg, repo, storage, telegram } = deps;
   const app = new Hono();
+  const exporter = createExporter(storage);
+
+  /** Adds the links for apps other than WhatsApp. */
+  const withExports = (pack: StickerPack): StickerPack => {
+    const base = `${cfg.publicBaseUrl}/v1/packs/${encodeURIComponent(pack.id)}`;
+    const ext = pack.animated ? "gif" : "png";
+    return {
+      ...pack,
+      exports: {
+        share: pack.stickers.map((s, i) => ({
+          url: `${base}/share/${i + 1}.${ext}`,
+          mimeType: pack.animated ? "image/gif" : "image/png",
+          fileName: `${s.fileName.replace(/\.webp$/, "")}.${ext}`,
+        })),
+        zipUrl: `${base}/download.zip`,
+        telegramUrl: telegram?.username ? telegram.startUrl(pack.id) : undefined,
+      },
+    };
+  };
 
   app.use(
     "/v1/*",
@@ -79,13 +108,53 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
   app.get("/v1/packs", async (c) => {
     const deviceId = c.req.header("x-device-id") ?? "";
     if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
-    return c.json({ packs: await repo.listPacks(deviceId) });
+    return c.json({ packs: (await repo.listPacks(deviceId)).map(withExports) });
   });
 
   app.get("/v1/packs/:id", async (c) => {
     const pack = await repo.getPack(c.req.param("id"));
-    return pack ? c.json({ pack }) : c.json({ error: "pack not found" }, 404);
+    return pack ? c.json({ pack: withExports(pack) }) : c.json({ error: "pack not found" }, 404);
   });
+
+  /** One sticker as GIF (animated packs) or PNG (static), for share sheets. Numbered from 1. */
+  app.get("/v1/packs/:id/share/:file", async (c) => {
+    const m = SHARE_FILE.exec(c.req.param("file"));
+    const pack = await repo.getPack(c.req.param("id"));
+    if (!m || !pack) return c.json({ error: "not found" }, 404);
+    const index = Number(m[1]) - 1;
+    if (index < 0 || index >= pack.stickers.length || m[2] !== (pack.animated ? "gif" : "png")) return c.json({ error: "not found" }, 404);
+    const file = await exporter.shareFile(pack, index);
+    return c.body(new Uint8Array(file.data), 200, {
+      "content-type": file.contentType,
+      "content-disposition": `inline; filename="${file.fileName}"`,
+      "cache-control": "public, max-age=86400",
+      "access-control-allow-origin": "*",
+    });
+  });
+
+  /** The whole pack in every format, for Signal, Discord and LINE. */
+  app.get("/v1/packs/:id/download.zip", async (c) => {
+    const pack = await repo.getPack(c.req.param("id"));
+    if (!pack) return c.json({ error: "pack not found" }, 404);
+    const data = await exporter.zip(pack);
+    const name = pack.name.replace(/[^A-Za-z0-9 _-]+/g, "").trim().slice(0, 60) || "stickers";
+    return c.body(new Uint8Array(data), 200, {
+      "content-type": "application/zip",
+      "content-disposition": `attachment; filename="${name}.zip"`,
+      "cache-control": "public, max-age=86400",
+      "access-control-allow-origin": "*",
+    });
+  });
+
+  if (telegram && cfg.telegram.webhookSecret) {
+    app.post("/telegram/webhook", async (c) => {
+      if (c.req.header("x-telegram-bot-api-secret-token") !== cfg.telegram.webhookSecret) return c.json({ error: "forbidden" }, 403);
+      const update = await c.req.json().catch(() => undefined);
+      // Answer at once; Telegram retries slow webhooks, and building a set takes a while.
+      if (update) telegram.handleUpdate(update).catch((e) => console.error("[telegram]", e));
+      return c.json({ ok: true });
+    });
+  }
 
   // Local development: serve stored files. In production files come from the bucket's CDN.
   if (storage instanceof LocalStorage) {

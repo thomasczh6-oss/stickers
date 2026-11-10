@@ -53,6 +53,17 @@ export interface StickerPack {
   /** Bump when stickers change so WhatsApp reloads them (Android image_data_version). */
   imageDataVersion: number;
   createdAt: string;
+  /** Ways to get the pack into apps other than WhatsApp. Filled in by the API when it serves a pack. */
+  exports?: PackExports;
+}
+
+export interface PackExports {
+  /** One file per sticker, in sticker order, for share sheets (iMessage, Messenger, Instagram...): GIF when animated, PNG when static. */
+  share: { url: string; mimeType: "image/gif" | "image/png"; fileName: string }[];
+  /** ZIP with WebP, PNG, GIF and APNG files plus a how-to, for Signal, Discord and LINE. */
+  zipUrl: string;
+  /** Opens our Telegram bot, which builds a Telegram sticker set. Absent when the server has no bot. */
+  telegramUrl?: string;
 }
 
 export interface ApiError {

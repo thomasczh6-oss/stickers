@@ -37,6 +37,12 @@ export interface Config {
   maxActiveJobsPerDevice: number;
   corsOrigins: string[];
   publisherName: string;
+  /**
+   * Telegram bot that turns packs into Telegram sticker sets. Off without a token.
+   * With webhookSecret the bot gets updates at PUBLIC_BASE_URL/telegram/webhook (needs HTTPS),
+   * otherwise it long-polls, which works from a laptop.
+   */
+  telegram: { token?: string; webhookSecret?: string };
 }
 
 export function loadConfig(overrides: Partial<Config> = {}): Config {
@@ -88,6 +94,7 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     maxActiveJobsPerDevice: int("MAX_ACTIVE_JOBS_PER_DEVICE", 2),
     corsOrigins: (env("CORS_ORIGINS", "http://localhost:3000") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     publisherName: env("PUBLISHER_NAME", "Stickers AI")!,
+    telegram: { token: env("TELEGRAM_BOT_TOKEN"), webhookSecret: env("TELEGRAM_WEBHOOK_SECRET") },
     ...overrides,
   };
 }
