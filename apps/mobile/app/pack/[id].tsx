@@ -2,12 +2,13 @@ import type { StickerPack } from "@stickers/shared";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/lib/api";
 import { SITE_URL, STORE_LINKS } from "@/lib/env";
 import { success, tap } from "@/lib/haptics";
 import { savePackForWhatsApp } from "@/lib/packFiles";
+import { shareSticker } from "@/lib/shareSticker";
 import { C, F } from "@/lib/theme";
 import * as WhatsApp from "@/modules/whatsapp-stickers";
 
@@ -18,6 +19,8 @@ export default function PackScreen() {
   const [pack, setPack] = useState<StickerPack>();
   const [error, setError] = useState<string>();
   const [add, setAdd] = useState<AddState>({ kind: "idle" });
+  const [sharing, setSharing] = useState<number>();
+  const [shareError, setShareError] = useState<string>();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   // Three columns: page padding 20 on each side, 10 between cells.
@@ -40,6 +43,27 @@ export default function PackScreen() {
     tap();
     const url = `${SITE_URL}/p/${pack.id}`;
     await Share.share(Platform.OS === "ios" ? { url, message: `My sticker pack “${pack.name}”` } : { message: `My sticker pack “${pack.name}”: ${url}` }).catch(() => undefined);
+  }
+
+  async function sendSticker(index: number) {
+    if (!pack || sharing !== undefined) return;
+    tap();
+    setShareError(undefined);
+    setSharing(index);
+    try {
+      await shareSticker(pack, index);
+    } catch (e) {
+      setShareError((e as Error).message);
+    } finally {
+      setSharing(undefined);
+    }
+  }
+
+  function addToTelegram() {
+    const url = pack?.exports?.telegramUrl;
+    if (!url) return;
+    tap();
+    Linking.openURL(url).catch(() => setShareError("Couldn’t open Telegram."));
   }
 
   async function addToWhatsApp() {
@@ -101,11 +125,30 @@ export default function PackScreen() {
         </View>
 
         <View style={s.grid}>
-          {pack.stickers.map((st) => (
-            <View key={st.id} style={[s.cell, { width: cell, height: cell }]}>
-              <Image source={st.url} style={s.sticker} contentFit="contain" accessibilityLabel={st.accessibilityText} />
-            </View>
+          {pack.stickers.map((st, i) => (
+            <Pressable
+              key={st.id}
+              onPress={() => sendSticker(i)}
+              accessibilityRole="button"
+              accessibilityLabel={`Send sticker: ${st.accessibilityText}`}
+              style={({ pressed }) => [s.cell, { width: cell, height: cell }, (pressed || sharing === i) && { opacity: 0.6 }]}
+            >
+              <Image source={st.url} style={s.sticker} contentFit="contain" />
+            </Pressable>
           ))}
+        </View>
+
+        <View style={s.more}>
+          <Text style={s.moreTitle}>Other apps</Text>
+          <Text style={s.muted}>
+            Tap a sticker to send it {pack.animated ? "as a GIF " : ""}in iMessage, Messenger, Instagram, Signal or any other chat.
+          </Text>
+          {shareError && <Text style={[s.error, { marginTop: 8, marginBottom: 0 }]}>{shareError}</Text>}
+          {pack.exports?.telegramUrl && (
+            <Pressable style={s.telegram} onPress={addToTelegram}>
+              <Text style={s.buttonText}>Add to Telegram</Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
 
@@ -139,6 +182,9 @@ const s = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 22 },
   cell: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.line, padding: 6 },
   sticker: { width: "100%", height: "100%" },
+  more: { marginTop: 26, padding: 18, borderRadius: 22, backgroundColor: C.card, borderWidth: 1, borderColor: C.line },
+  moreTitle: { fontFamily: F.display, fontSize: 20, color: C.ink, marginBottom: 2 },
+  telegram: { marginTop: 14, backgroundColor: "#2aabee", borderRadius: 99, paddingVertical: 14, alignItems: "center" },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 14, backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line },
   button: { backgroundColor: C.ink, borderRadius: 99, paddingVertical: 17, alignItems: "center" },
   buttonDim: { opacity: 0.6 },
