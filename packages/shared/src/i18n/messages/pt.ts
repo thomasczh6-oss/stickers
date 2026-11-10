@@ -21,6 +21,7 @@ export const pt: Messages = {
   ideas: ["um panda chef cheio de sono", "o meu golden retriever de óculos de sol", "um gato barista rabugento", "um hamster astronauta minúsculo"],
 
   create: {
+    restored: "Guardamos sua foto e suas escolhas da última vez. Mude o que quiser ou tente de novo.",
     who: "Quem aparece nos seus stickers?",
     style: "Escolha um estilo",
     reactions: "Escolha as suas reações",

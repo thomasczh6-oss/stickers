@@ -2,11 +2,12 @@ import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePa
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/lib/api";
+import { loadDraft, saveDraft } from "@/lib/draft";
 import { tap } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
 import { C, F } from "@/lib/theme";
@@ -52,6 +53,28 @@ export default function Create() {
   const [captions, setCaptions] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [restored, setRestored] = useState(false);
+  const { retry } = useLocalSearchParams<{ retry?: string }>();
+
+  // Coming back from a failed job ("Try again"): refill the screen exactly as it was.
+  useEffect(() => {
+    if (!retry) return;
+    let live = true;
+    void loadDraft(retry).then((d) => {
+      if (!live || !d) return;
+      setSource(d.source);
+      setPrompt(d.prompt);
+      setPhoto(d.photo);
+      setStyle(d.style);
+      setAnimated(d.animated);
+      setActions(d.actions);
+      setCaptions(d.captions);
+      setRestored(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, [retry]);
 
   const toggle = (id: ActionId) => {
     tap();
@@ -77,6 +100,7 @@ export default function Create() {
     setBusy(true);
     try {
       const { job } = await (await api()).createPack(parsed.value);
+      await saveDraft(job.id, { source, prompt, photo, style, animated, actions, captions });
       router.replace({ pathname: "/job/[id]", params: { id: job.id } });
     } catch (e) {
       setError((e as Error).message);
@@ -217,6 +241,7 @@ export default function Create() {
           </View>
         </Section>
 
+        {restored && !error && <Text style={s.restored}>{c.restored}</Text>}
         {error && <Text style={s.error}>{error}</Text>}
       </ScrollView>
 
@@ -284,6 +309,7 @@ const s = StyleSheet.create({
   toggleTitle: { fontFamily: F.semibold, fontSize: 15, color: C.ink },
   toggleBody: { fontFamily: F.regular, fontSize: 13, color: C.muted, marginTop: 1 },
   error: { fontFamily: F.regular, color: C.danger, textAlign: "center", marginTop: 4 },
+  restored: { fontFamily: F.regular, color: C.ink, backgroundColor: C.brandSoft, borderRadius: 14, padding: 12, textAlign: "center", marginTop: 4, overflow: "hidden" },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 12, backgroundColor: C.bg, borderTopWidth: 1, borderColor: C.line },
   button: { backgroundColor: C.ink, borderRadius: 99, paddingVertical: 17, alignItems: "center" },
   buttonOff: { opacity: 0.35 },

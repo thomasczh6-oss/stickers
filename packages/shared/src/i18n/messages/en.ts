@@ -39,6 +39,8 @@ export const en = {
   ideas: ["a sleepy panda chef", "my golden retriever in sunglasses", "a grumpy cat barista", "a tiny astronaut hamster"],
 
   create: {
+    /** Shown on the create form after "Try again" refilled it from the failed job. */
+    restored: "We kept your photo and choices from last time. Change anything, or just try again.",
     who: "Who’s in your stickers?",
     style: "Pick a style",
     reactions: "Choose your reactions",

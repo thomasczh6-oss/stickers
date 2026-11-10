@@ -20,6 +20,7 @@ export const de: Messages = {
   ideas: ["ein verschlafener Panda-Koch", "mein Golden Retriever mit Sonnenbrille", "eine grummelige Barista-Katze", "ein winziger Astronauten-Hamster"],
 
   create: {
+    restored: "Dein Foto und deine Auswahl vom letzten Mal sind noch da. Ändere etwas oder versuch es einfach nochmal.",
     who: "Wer ist auf deinen Stickern?",
     style: "Wähle einen Stil",
     reactions: "Wähle deine Reaktionen",

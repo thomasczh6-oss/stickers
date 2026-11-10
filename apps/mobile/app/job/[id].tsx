@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { api } from "@/lib/api";
+import { clearDraft } from "@/lib/draft";
 import { success } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
 import { C, F } from "@/lib/theme";
@@ -27,6 +28,7 @@ export default function JobScreen() {
         setError(undefined);
         if (job.status === "succeeded" && job.packId) {
           success();
+          void clearDraft(id);
           return router.replace({ pathname: "/pack/[id]", params: { id: job.packId } });
         }
         if (job.status === "failed") return;
@@ -51,7 +53,7 @@ export default function JobScreen() {
         <Text style={s.title}>{j.failedTitle}</Text>
         <Text style={s.body}>{job.error ?? j.failedBody}</Text>
         <Text style={s.body}>{j.failedHint}</Text>
-        <Pressable style={s.button} onPress={() => router.replace("/create")}>
+        <Pressable style={s.button} onPress={() => router.replace({ pathname: "/create", params: { retry: id } })}>
           <Text style={s.buttonText}>{j.tryAgain}</Text>
         </Pressable>
       </View>

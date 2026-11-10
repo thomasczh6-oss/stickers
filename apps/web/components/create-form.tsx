@@ -2,8 +2,9 @@
 
 import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { loadDraft, saveDraft } from "@/lib/draft";
 import { useI18n } from "./i18n";
 
 type Photo = { base64: string; mimeType: "image/jpeg"; previewUrl: string };
@@ -38,6 +39,23 @@ export function CreateForm() {
   const [packName, setPackName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [restored, setRestored] = useState(false);
+
+  // Coming back from a failed job ("Try again"): refill the form exactly as it was.
+  useEffect(() => {
+    const retry = new URLSearchParams(window.location.search).get("retry");
+    const d = retry ? loadDraft(retry) : undefined;
+    if (!d) return;
+    setSource(d.source);
+    setPrompt(d.prompt);
+    if (d.photo) setPhoto({ ...d.photo, previewUrl: `data:${d.photo.mimeType};base64,${d.photo.base64}` });
+    setStyle(d.style);
+    setAnimated(d.animated);
+    setActions(d.actions);
+    setCaptions(d.captions);
+    setPackName(d.packName);
+    setRestored(true);
+  }, []);
 
   const toggle = (id: ActionId) =>
     setActions((cur) => (cur.includes(id) ? cur.filter((a) => a !== id) : cur.length < CREATE_LIMITS.MAX_ACTIONS ? [...cur, id] : cur));
@@ -74,6 +92,16 @@ export function CreateForm() {
     setBusy(true);
     try {
       const { job } = await api().createPack(parsed.value);
+      saveDraft(job.id, {
+        source,
+        prompt,
+        photo: photo ? { base64: photo.base64, mimeType: photo.mimeType } : undefined,
+        style,
+        animated,
+        actions,
+        captions,
+        packName,
+      });
       router.push(`/jobs/${job.id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -274,6 +302,7 @@ export function CreateForm() {
             </span>
           ))}
         </div>
+        {restored && !error && <p className="mt-5 rounded-2xl bg-brand-soft p-3 text-sm">{c.restored}</p>}
         {error && <p className="mt-5 rounded-2xl bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
         <button
           disabled={busy || !ready}
