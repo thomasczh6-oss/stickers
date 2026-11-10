@@ -237,6 +237,9 @@ export function PackLibrary({ header, onError }: { header?: ReactElement; onErro
   const columns = width >= 900 ? 4 : width >= 600 ? 3 : 2;
   // Fixed card width so a lone card in the last row stays the same size as the others.
   const cardWidth = Math.floor((width - 32 - 12 * (columns - 1)) / columns);
+  // Thumbnails get a size in points: on Android a "50%" width with aspectRatio inside a
+  // wrapping row lays out 0 high, so the previews never showed. 30 = card border + padding + grid padding.
+  const thumbSize = Math.max(Math.floor((cardWidth - 30) / 2), 1);
   const date = (iso: string) => new Date(iso).toLocaleDateString(locale, { month: "short", day: "numeric" });
 
   const controls = !nothingAtAll && (
@@ -367,9 +370,9 @@ export function PackLibrary({ header, onError }: { header?: ReactElement; onErro
               delayLongPress={300}
               accessibilityState={selecting ? { selected: isSel } : undefined}
             >
-              <View style={[s.thumbs, isSel && { backgroundColor: C.brandSoft }]}>
+              <View style={[s.thumbs, { minHeight: thumbSize * 2 + 12 }, isSel && { backgroundColor: C.brandSoft }]}>
                 {item.stickers.slice(0, 4).map((st) => (
-                  <Image key={st.id} source={st.url} style={s.thumb} contentFit="contain" recyclingKey={st.id} />
+                  <Image key={st.id} source={st.url} style={{ width: thumbSize, height: thumbSize }} contentFit="contain" recyclingKey={st.id} />
                 ))}
               </View>
               {selecting ? (
@@ -564,7 +567,6 @@ const s = StyleSheet.create({
   cardSel: { borderColor: C.brand, borderWidth: 2, padding: 7 },
   pressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
   thumbs: { flexDirection: "row", flexWrap: "wrap", backgroundColor: C.bg, borderRadius: 16, padding: 6 },
-  thumb: { width: "50%", aspectRatio: 1 },
   star: { position: "absolute", top: 12, right: 12, width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(255,255,255,0.92)", alignItems: "center", justifyContent: "center" },
   starText: { fontSize: 17, color: C.muted, marginTop: -1 },
   check: { position: "absolute", top: 12, left: 12, width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: "#fff", backgroundColor: "rgba(255,255,255,0.8)", alignItems: "center", justifyContent: "center" },
