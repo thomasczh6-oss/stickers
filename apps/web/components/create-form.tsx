@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useI18n } from "./i18n";
+import { useNoticeStore } from "./notifications";
 
 type Photo = { base64: string; mimeType: "image/jpeg"; previewUrl: string };
 type Source = "photo" | "describe";
@@ -23,6 +24,7 @@ async function preparePhoto(file: File): Promise<Photo> {
 
 export function CreateForm() {
   const router = useRouter();
+  const notices = useNoticeStore();
   const { locale, m } = useI18n();
   const c = m.create;
   const w = m.web.create;
@@ -74,6 +76,7 @@ export function CreateForm() {
     setBusy(true);
     try {
       const { job } = await api().createPack(parsed.value);
+      notices?.watch(job.id);
       router.push(`/jobs/${job.id}`);
     } catch (err) {
       setError((err as Error).message);

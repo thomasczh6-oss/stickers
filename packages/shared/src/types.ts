@@ -90,6 +90,37 @@ export interface ListPacksResponse {
   counts: Record<PackFilter, number>;
 }
 
+/** One entry in the message center: a pack being made, made, or failed. Its id is the job id. */
+export interface GenerationNotice {
+  id: string;
+  status: JobStatus;
+  progress: Job["progress"];
+  /** Pack name once made, else the name the maker typed. */
+  name?: string;
+  /** The description the pack was made from (empty when made from a photo only). */
+  prompt?: string;
+  style: StyleId;
+  kind: StickerKind;
+  stickerCount: number;
+  fromPhoto: boolean;
+  packId?: string;
+  /** First sticker of the finished pack, for the thumbnail. */
+  previewUrl?: string;
+  error?: string;
+  /** Finished and opened (or marked read). Packs still being made are never unread. */
+  read: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationsResponse {
+  notifications: GenerationNotice[];
+  /** Finished packs (made or failed) the maker has not seen yet. */
+  unread: number;
+  /** Packs queued or being made right now. */
+  active: number;
+}
+
 export type BulkPackAction = "delete" | "restore" | "favorite" | "unfavorite";
 
 export interface ApiError {

@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
+import { useNoticeStore } from "@/lib/notifications";
 import { C, F } from "@/lib/theme";
 
 type Photo = { uri: string; base64: string };
@@ -41,6 +42,7 @@ async function pickPhoto(): Promise<Photo | undefined> {
 export default function Create() {
   const insets = useSafeAreaInsets();
   const { locale, m } = useI18n();
+  const notices = useNoticeStore();
   const c = m.create;
   const a = m.app.create;
   const [source, setSource] = useState<Source>("photo");
@@ -77,6 +79,7 @@ export default function Create() {
     setBusy(true);
     try {
       const { job } = await (await api()).createPack(parsed.value);
+      notices?.watch(job.id);
       router.replace({ pathname: "/job/[id]", params: { id: job.id } });
     } catch (e) {
       setError((e as Error).message);

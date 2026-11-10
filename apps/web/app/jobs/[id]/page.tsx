@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n";
+import { useNoticeStore } from "@/components/notifications";
 import { api } from "@/lib/api";
 import samples from "@/public/samples/index.json";
 
@@ -18,6 +19,7 @@ export default function JobPage() {
   const [job, setJob] = useState<Job>();
   const [error, setError] = useState<string>();
   const [tick, setTick] = useState(0);
+  const notices = useNoticeStore();
 
   useEffect(() => {
     let stop = false;
@@ -28,6 +30,8 @@ export default function JobPage() {
         if (stop) return;
         setJob(job);
         setError(undefined);
+        // Seen here, so the message center does not count it as new.
+        if (job.status === "succeeded" || job.status === "failed") void notices?.markRead([job.id]);
         if (job.status === "succeeded" && job.packId) return router.replace(`/p/${job.packId}`);
         if (job.status === "failed") return;
       } catch (e) {
@@ -42,7 +46,7 @@ export default function JobPage() {
       clearTimeout(timer);
       clearInterval(t);
     };
-  }, [id, router]);
+  }, [id, router, notices]);
 
   if (job?.status === "failed") {
     return (
@@ -112,6 +116,12 @@ export default function JobPage() {
         <p className="mt-10 rounded-2xl border border-line bg-card p-4 text-sm text-muted">
           <span className="font-semibold text-ink">{j.tipLabel}</span> {j.tips[Math.floor(tick / 2) % j.tips.length]}
         </p>
+        <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl bg-brand-soft p-4 text-sm">
+          <p className="min-w-0 flex-1 basis-60 text-ink/80">🔔 {m.notifications.leaveHint}</p>
+          <Link href="/" className="shrink-0 rounded-full bg-card px-4 py-2 font-semibold text-ink shadow-sm hover:bg-paper">
+            {m.notifications.keepBrowsing}
+          </Link>
+        </div>
         {error && <p className="mt-4 text-sm text-rose-700">
             {j.retrying} ({error})
           </p>}

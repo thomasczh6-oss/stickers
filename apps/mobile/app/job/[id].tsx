@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { api } from "@/lib/api";
 import { success } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
+import { useNoticeStore } from "@/lib/notifications";
 import { C, F } from "@/lib/theme";
 
 export default function JobScreen() {
@@ -15,6 +16,7 @@ export default function JobScreen() {
   const [job, setJob] = useState<Job>();
   const [error, setError] = useState<string>();
   const [tick, setTick] = useState(0);
+  const notices = useNoticeStore();
 
   useEffect(() => {
     let stop = false;
@@ -25,6 +27,8 @@ export default function JobScreen() {
         if (stop) return;
         setJob(job);
         setError(undefined);
+        // Seen here, so the message center does not count it as new.
+        if (job.status === "succeeded" || job.status === "failed") void notices?.markRead([job.id]);
         if (job.status === "succeeded" && job.packId) {
           success();
           return router.replace({ pathname: "/pack/[id]", params: { id: job.packId } });
@@ -42,7 +46,7 @@ export default function JobScreen() {
       clearTimeout(timer);
       clearInterval(t);
     };
-  }, [id]);
+  }, [id, notices]);
 
   if (job?.status === "failed") {
     return (
@@ -98,6 +102,7 @@ export default function JobScreen() {
         </Text>
       </View>
       {error && <Text style={s.error}>{j.retrying}</Text>}
+      <Text style={s.hint}>🔔 {m.notifications.leaveHint}</Text>
       <Pressable onPress={() => router.replace("/")} style={{ alignSelf: "center" }}>
         <Text style={s.link}>{m.app.job.backHome}</Text>
       </Pressable>
@@ -124,7 +129,8 @@ const s = StyleSheet.create({
   tip: { marginTop: 28, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.line, padding: 14 },
   tipText: { fontFamily: F.regular, fontSize: 14, color: C.muted, lineHeight: 20 },
   error: { fontFamily: F.regular, color: C.danger, marginTop: 12, textAlign: "center" },
-  link: { fontFamily: F.semibold, color: C.ink, marginTop: 24, textDecorationLine: "underline" },
+  hint: { fontFamily: F.regular, fontSize: 13, color: C.muted, textAlign: "center", marginTop: 20, lineHeight: 18 },
+  link: { fontFamily: F.semibold, color: C.ink, marginTop: 12, textDecorationLine: "underline" },
   button: { backgroundColor: C.ink, borderRadius: 99, paddingVertical: 15, paddingHorizontal: 32, marginTop: 20 },
   buttonText: { fontFamily: F.semibold, color: "#fff", fontSize: 16 },
 });

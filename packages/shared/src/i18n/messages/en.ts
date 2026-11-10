@@ -137,6 +137,37 @@ export const en = {
     favorited: "Added to favorites",
   },
 
+  /** Message center: status of packs being made, made and failed. */
+  notifications: {
+    title: "Notifications",
+    open: "Open notifications",
+    newCount: "{n} new",
+    markAllRead: "Mark all read",
+    clear: "Clear finished",
+    emptyTitle: "No notifications yet",
+    emptyBody: "Make a pack and you’ll see its progress here, plus a heads-up the moment it’s ready.",
+    queued: "Waiting to start",
+    making: "Making · {done} of {total}",
+    ready: "Ready to add",
+    failed: "Didn’t work",
+    fromPhoto: "Pack from your photo",
+    untitled: "New pack",
+    view: "View pack",
+    viewProgress: "See progress",
+    details: "See why",
+    remove: "Remove",
+    toastReady: "“{name}” is ready",
+    toastFailed: "“{name}” didn’t work",
+    toastOpen: "Open",
+    loadError: "Couldn’t load notifications",
+    justNow: "just now",
+    minutesAgo: "{n} min ago",
+    hoursAgo: "{n} h ago",
+    daysAgo: "{n} d ago",
+    leaveHint: "You can leave this page. The bell at the top will tell you when your pack is ready.",
+    keepBrowsing: "Keep browsing",
+  },
+
   web: {
     meta: {
       title: "Stickers AI: animated WhatsApp stickers of you, made by AI",
