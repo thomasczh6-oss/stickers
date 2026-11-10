@@ -53,6 +53,8 @@ function Screens() {
         <Stack.Screen name="job/[id]" options={{ title: "", headerBackVisible: false, gestureEnabled: false }} />
         <Stack.Screen name="pack/[id]" options={{ title: "" }} />
         <Stack.Screen name="p/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="discover/index" options={{ title: "" }} />
+        <Stack.Screen name="discover/[id]" options={{ title: "" }} />
       </Stack>
     </>
   );

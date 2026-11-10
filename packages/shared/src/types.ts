@@ -56,6 +56,8 @@ export interface StickerPack {
   /** Bump when stickers change so WhatsApp reloads them (Android image_data_version). */
   imageDataVersion: number;
   createdAt: string;
+  /** Discover publication this pack was remixed from. */
+  remixOf?: string;
 }
 
 export interface ApiError {

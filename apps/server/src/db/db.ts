@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { DISCOVER_SCHEMA } from "./discover";
 
 export interface Db {
   query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
@@ -70,7 +71,7 @@ export async function openDb(opts: { databaseUrl?: string; dataDir: string }): P
       close: () => lite.close(),
     };
   }
-  for (const statement of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) {
+  for (const statement of [SCHEMA, DISCOVER_SCHEMA].join(";").split(";").map((s) => s.trim()).filter(Boolean)) {
     await db.query(statement);
   }
   return db;

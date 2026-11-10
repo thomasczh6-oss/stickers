@@ -1,13 +1,14 @@
-import { fmt, type StickerPack } from "@stickers/shared";
+import { fmt, type PublishState, type StickerPack } from "@stickers/shared";
 import { Image } from "expo-image";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PublishRow } from "@/components/PublishSheet";
 import { api } from "@/lib/api";
 import { SITE_URL, STORE_LINKS } from "@/lib/env";
 import { success, tap } from "@/lib/haptics";
-import { useI18n } from "@/lib/i18n";
+import { useDiscoverI18n } from "@/lib/i18n";
 import { savePackForWhatsApp } from "@/lib/packFiles";
 import { C, F } from "@/lib/theme";
 import * as WhatsApp from "@/modules/whatsapp-stickers";
@@ -16,8 +17,9 @@ type AddState = { kind: "idle" } | { kind: "saving"; done: number; total: number
 
 export default function PackScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { m } = useI18n();
+  const { m, d } = useDiscoverI18n();
   const t = m.app.pack;
+  const [publish, setPublish] = useState<PublishState>();
   const [pack, setPack] = useState<StickerPack>();
   const [error, setError] = useState<string>();
   const [add, setAdd] = useState<AddState>({ kind: "idle" });
@@ -31,6 +33,8 @@ export default function PackScreen() {
       try {
         const { pack } = await (await api()).getPack(id);
         setPack(pack);
+        // Only the creator gets an answer; anyone else simply doesn't see the Discover row.
+        void (await api()).getPublishState(pack.id).then(setPublish, () => undefined);
         if (await WhatsApp.isPackAdded(pack.identifier)) setAdd({ kind: "added" });
       } catch (e) {
         setError((e as Error).message);
@@ -101,6 +105,11 @@ export default function PackScreen() {
             <Text style={s.muted}>
               {fmt(pack.animated ? m.pack.animatedStickers : m.pack.stickers, { n: pack.stickers.length })} · {fmt(t.madeWith, { publisher: pack.publisher })}
             </Text>
+            {pack.remixOf && (
+              <Pressable onPress={() => router.push({ pathname: "/discover/[id]", params: { id: pack.remixOf! } })} hitSlop={6}>
+                <Text style={s.remixOf}>{d.remixedFrom} ›</Text>
+              </Pressable>
+            )}
           </View>
         </View>
 
@@ -111,6 +120,8 @@ export default function PackScreen() {
             </View>
           ))}
         </View>
+
+        {publish && <PublishRow packId={pack.id} name={pack.name} state={publish} onChange={setPublish} />}
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
@@ -140,6 +151,7 @@ const s = StyleSheet.create({
   title: { fontFamily: F.display, fontSize: 26, lineHeight: 29, color: C.ink, letterSpacing: -0.5 },
   muted: { fontFamily: F.regular, color: C.muted, marginTop: 3, fontSize: 14 },
   share: { fontFamily: F.semibold, color: C.ink, fontSize: 16 },
+  remixOf: { fontFamily: F.semibold, color: C.brand, fontSize: 13, marginTop: 4 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 22 },
   cell: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.line, padding: 6 },
   sticker: { width: "100%", height: "100%" },

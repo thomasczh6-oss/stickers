@@ -3,8 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { API_INTERNAL_BASE_URL } from "@/lib/env";
+import { getDiscoverI18n } from "@/lib/discover";
 import { getI18n } from "@/lib/i18n";
 import { AddToWhatsApp } from "./add-to-whatsapp";
+import { PublishButton } from "./publish-button";
 import { ShareButton } from "./share-button";
 
 async function loadPack(id: string): Promise<StickerPack | undefined> {
@@ -30,7 +32,7 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const pack = await loadPack(id);
   if (!pack) notFound();
-  const { locale, m } = await getI18n();
+  const { locale, m, d } = await getDiscoverI18n();
 
   return (
     <div className="grid items-start gap-10 pt-10 pb-6 lg:grid-cols-[1fr_360px]">
@@ -46,6 +48,11 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
                 {fmt(pack.animated ? m.pack.animatedStickers : m.pack.stickers, { n: pack.stickers.length })} ·{" "}
                 {new Date(pack.createdAt).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}
               </p>
+              {pack.remixOf && (
+                <Link href={`/discover/${pack.remixOf}`} className="mt-1 inline-block text-sm font-semibold text-brand underline-offset-4 hover:underline">
+                  {d.remixedFrom} →
+                </Link>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -74,6 +81,7 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
       </section>
       <aside className="lg:sticky lg:top-24">
         <AddToWhatsApp packId={pack.id} />
+        <PublishButton packId={pack.id} name={pack.name} />
       </aside>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { getMessages, type Locale, type Messages } from "@stickers/shared";
+import { getDiscoverMessages, getMessages, type Locale, type Messages } from "@stickers/shared";
 import { createContext, useContext, useMemo } from "react";
 
 const I18nContext = createContext<{ locale: Locale; m: Messages }>({ locale: "en", m: getMessages("en") });
@@ -13,4 +13,10 @@ export function I18nProvider({ locale, children }: { locale: Locale; children: R
 
 export function useI18n() {
   return useContext(I18nContext);
+}
+
+/** Discover screen text in the visitor's language. */
+export function useDiscoverI18n() {
+  const i = useContext(I18nContext);
+  return { ...i, d: getDiscoverMessages(i.locale) };
 }

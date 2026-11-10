@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getMessages, isLocale, type Locale, matchLocale, type Messages } from "@stickers/shared";
+import { getDiscoverMessages, getMessages, isLocale, type Locale, matchLocale, type Messages } from "@stickers/shared";
 import { useLocales } from "expo-localization";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
@@ -37,4 +37,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
 export function useI18n() {
   return useContext(I18nContext);
+}
+
+/** Discover screen text in the app's language. */
+export function useDiscoverI18n() {
+  const i = useContext(I18nContext);
+  return { ...i, d: getDiscoverMessages(i.locale) };
 }

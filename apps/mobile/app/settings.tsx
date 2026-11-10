@@ -2,10 +2,10 @@ import { fmt, LOCALE_NAMES, LOCALES } from "@stickers/shared";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { checkServer, getServerUrl, setServerUrl } from "@/lib/api";
+import { api, checkServer, getServerUrl, setServerUrl } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/env";
 import { tap } from "@/lib/haptics";
-import { type LanguagePreference, useI18n } from "@/lib/i18n";
+import { type LanguagePreference, useDiscoverI18n } from "@/lib/i18n";
 import { C, F } from "@/lib/theme";
 
 type Status = { kind: "idle" } | { kind: "checking" } | { kind: "ok"; text: string } | { kind: "error"; text: string };
@@ -15,7 +15,8 @@ type Status = { kind: "idle" } | { kind: "checking" } | { kind: "ok"; text: stri
  * e.g. http://192.168.1.20:8787 on the same Wi-Fi.
  */
 export default function Settings() {
-  const { m, preference, setPreference } = useI18n();
+  const { m, d, preference, setPreference } = useDiscoverI18n();
+  const [unblocked, setUnblocked] = useState<string>();
   const t = m.app.settings;
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -64,6 +65,23 @@ export default function Settings() {
           );
         })}
       </View>
+
+      <Text style={[s.label, { marginTop: 28 }]}>{d.title}</Text>
+      <Pressable
+        style={[s.button, s.secondary, { flex: 0 }]}
+        onPress={async () => {
+          tap();
+          try {
+            await (await api()).unblockAll();
+            setUnblocked(d.unblocked);
+          } catch (e) {
+            setUnblocked((e as Error).message);
+          }
+        }}
+      >
+        <Text style={[s.buttonText, { color: C.ink }]}>{d.unblockAll}</Text>
+      </Pressable>
+      {unblocked && <Text style={s.hint}>{unblocked}</Text>}
 
       <Text style={[s.label, { marginTop: 28 }]}>{t.server}</Text>
       <TextInput
