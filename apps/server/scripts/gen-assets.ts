@@ -18,7 +18,6 @@ import sharp, { type OverlayOptions } from "sharp";
 import { STYLES, type ActionId, type StyleId } from "@stickers/shared";
 import { loadConfig } from "../src/config";
 import { generatePack } from "../src/pipeline/generatePack";
-import { FlowInterpolator } from "../src/pipeline/interpolate";
 import { characterPrompt } from "../src/pipeline/prompts";
 import { addOutline, alphaBounds, removeBackground } from "../src/pipeline/image";
 import { createImageProvider } from "../src/providers";
@@ -66,7 +65,6 @@ const SAMPLES: { slug: string; title: string; style: StyleId; prompt: string; bl
 
 const cfg = loadConfig();
 const provider = createImageProvider(cfg);
-const interpolator = cfg.worker.smoothMotion ? new FlowInterpolator() : undefined;
 await fs.mkdir(WORK, { recursive: true });
 console.log(`[assets] provider=${provider.name} root=${ROOT}`);
 if (provider.name === "mock") console.log("[assets] mock provider: writing offline placeholders, not real artwork");
@@ -129,7 +127,7 @@ if (want("samples")) {
   await mapLimit(todo, 2, async (s) => {
     const storage = new LocalStorage(path.join(WORK, "samples"), "file://");
     const pack = await generatePack(
-      { provider, storage, publisherName: cfg.publisherName, stickerConcurrency: cfg.worker.stickerConcurrency, interpolator },
+      { provider, storage, publisherName: cfg.publisherName, stickerConcurrency: cfg.worker.stickerConcurrency },
       {
         packId: `sample-${s.slug}`,
         request: { prompt: s.prompt, style: s.style, kind: "animated", actions: s.actions, captions: true, packName: s.title },

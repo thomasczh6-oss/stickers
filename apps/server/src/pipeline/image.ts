@@ -359,17 +359,7 @@ function cropRgba(f: Rgba, w: number, h: number): Rgba {
   return { data, width: w, height: h };
 }
 
-/** Lines frames up, crops them to the character and places them on the 512x512 canvas, then adds outline and caption. */
 export async function composeFrames(frames: Rgba[], opts: ComposeOptions = {}): Promise<Buffer[]> {
-  const placed = await placeFrames(frames, opts);
-  return Promise.all(placed.map((f) => finishFrame(f, opts)));
-}
-
-/**
- * Lines frames up and places them on the 512x512 canvas, leaving room for the outline and
- * caption that `finishFrame` adds. All frames share one crop and scale, so they stay in step.
- */
-export async function placeFrames(frames: Rgba[], opts: ComposeOptions = {}): Promise<Rgba[]> {
   if (frames.length === 0) throw new Error("no frames to compose");
   const align = opts.align ?? "feet";
   if (frames.length > 1 && align !== "none") {
@@ -406,25 +396,18 @@ export async function placeFrames(frames: Rgba[], opts: ComposeOptions = {}): Pr
   const left = Math.round((S - nw) / 2);
   const top = Math.round((S - captionSpace - nh) / 2);
 
-  const crop = box;
-  return Promise.all(
-    frames.map(async (f) => {
-      const { data, info } = await sharp(f.data, { raw: { width: f.width, height: f.height, channels: 4 } })
-        .extract(crop)
-        .resize(nw, nh, { kernel: "lanczos3" })
-        .extend({ top, left, bottom: S - nh - top, right: S - nw - left, background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      return { data, width: info.width, height: info.height };
-    }),
-  );
-}
-
-/** Turns a placed frame into the final PNG: white outline, then the caption. */
-export async function finishFrame(frame: Rgba, opts: Pick<ComposeOptions, "outline" | "caption"> = {}): Promise<Buffer> {
-  const png = await sharp(frame.data, { raw: { width: frame.width, height: frame.height, channels: 4 } }).png().toBuffer();
-  let out = opts.outline ? await addOutline(png) : png;
-  if (opts.caption) out = await addCaption(out, opts.caption);
+  const out: Buffer[] = [];
+  for (const f of frames) {
+    const placed = await sharp(f.data, { raw: { width: f.width, height: f.height, channels: 4 } })
+      .extract(box)
+      .resize(nw, nh, { kernel: "lanczos3" })
+      .extend({ top, left, bottom: S - nh - top, right: S - nw - left, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer();
+    let frame = opts.outline ? await addOutline(placed) : placed;
+    if (opts.caption) frame = await addCaption(frame, opts.caption);
+    out.push(frame);
+  }
   return out;
 }
 

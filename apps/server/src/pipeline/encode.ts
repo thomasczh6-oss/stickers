@@ -10,21 +10,13 @@ export function pingPong<T>(frames: T[]): T[] {
   return [...frames, ...frames.slice(1, -1).reverse()];
 }
 
-export interface AnimatedOptions {
-  /** Lowest quality to try before giving up (or dropping frames). Default: the whole ladder. */
-  minQuality?: number;
-  /** Drop every other frame when nothing fits. Default true; false throws instead. */
-  dropFrames?: boolean;
-}
-
 /**
  * Encodes 512x512 PNG frames as an animated WebP within WhatsApp's 500KB / 10s limits.
  * `delays` is one duration for every frame, or one per frame. Lowers quality first, then
  * drops every other frame (keeping the first, and folding the dropped time into the kept
  * frame so the pace stays the same) if still too big.
  */
-export async function encodeAnimated(frames: Buffer[], delays: number | number[], opts: AnimatedOptions = {}): Promise<Buffer> {
-  const qualities = ANIMATED_QUALITIES.filter((q) => q >= (opts.minQuality ?? 0));
+export async function encodeAnimated(frames: Buffer[], delays: number | number[]): Promise<Buffer> {
   let seq = frames;
   let ds = (Array.isArray(delays) ? delays : frames.map(() => delays)).map((d) => Math.max(WA.MIN_FRAME_MS, d));
   if (ds.length !== seq.length) throw new Error("one delay per frame is required");
@@ -39,13 +31,13 @@ export async function encodeAnimated(frames: Buffer[], delays: number | number[]
     ds = ds.map((d) => Math.max(WA.MIN_FRAME_MS, Math.floor(d * k)));
   }
   for (;;) {
-    for (const quality of qualities) {
+    for (const quality of ANIMATED_QUALITIES) {
       const out = await sharp(seq, { join: { animated: true } })
         .webp({ quality, alphaQuality: Math.max(50, quality), effort: 5, smartSubsample: true, loop: 0, delay: ds })
         .toBuffer();
       if (out.length <= WA.ANIMATED_MAX_BYTES) return out;
     }
-    if (seq.length <= 2 || opts.dropFrames === false) break;
+    if (seq.length <= 2) break;
     halve();
   }
   throw new Error("could not fit the animation under 500KB");

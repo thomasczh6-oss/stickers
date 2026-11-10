@@ -5,7 +5,6 @@ import { createRepo } from "./db/repo";
 import { createApp } from "./http/app";
 import { createImageProvider } from "./providers";
 import { createStorage } from "./storage/storage";
-import { FlowInterpolator } from "./pipeline/interpolate";
 import { startWorker } from "./worker";
 
 const cfg = loadConfig();
@@ -23,14 +22,7 @@ if (cfg.provider === "mock") console.log("[server] No GATEWAY_API_KEY set: stick
 
 const worker = cfg.worker.enabled
   ? startWorker(
-      {
-        repo,
-        storage,
-        provider,
-        publisherName: cfg.publisherName,
-        stickerConcurrency: cfg.worker.stickerConcurrency,
-        interpolator: cfg.worker.smoothMotion ? new FlowInterpolator() : undefined,
-      },
+      { repo, storage, provider, publisherName: cfg.publisherName, stickerConcurrency: cfg.worker.stickerConcurrency },
       { concurrency: cfg.worker.jobConcurrency, pollMs: cfg.worker.pollMs },
     )
   : undefined;

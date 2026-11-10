@@ -13,7 +13,6 @@ import sharp from "sharp";
 import { DEFAULT_ACTIONS, type ActionId, type StyleId } from "@stickers/shared";
 import { loadConfig } from "../src/config";
 import { generatePack } from "../src/pipeline/generatePack";
-import { FlowInterpolator } from "../src/pipeline/interpolate";
 import { createImageProvider } from "../src/providers";
 import { LocalStorage } from "../src/storage/storage";
 
@@ -33,7 +32,6 @@ const { values } = parseArgs({
 
 const cfg = loadConfig();
 const provider = createImageProvider(cfg);
-const interpolator = cfg.worker.smoothMotion ? new FlowInterpolator() : undefined;
 const outDir = path.resolve(values.out ?? `out/smoke-${new Date().toISOString().replace(/[:.]/g, "-")}`);
 const storage = new LocalStorage(outDir, "file://");
 const packId = "pk_smoke";
@@ -45,7 +43,7 @@ const photo = values.photo
 console.log(`[smoke] provider=${provider.name} kind=${values.kind} style=${values.style} out=${outDir}`);
 const started = Date.now();
 const pack = await generatePack(
-  { provider, storage, publisherName: cfg.publisherName, stickerConcurrency: cfg.worker.stickerConcurrency, interpolator },
+  { provider, storage, publisherName: cfg.publisherName, stickerConcurrency: cfg.worker.stickerConcurrency },
   {
     packId,
     request: {

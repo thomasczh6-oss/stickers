@@ -16,7 +16,6 @@
     "@electric-sql/pglite": "0.5.15",
     "@hono/node-server": "2.1.6",
     "@stickers/shared": "workspace:*",
-    "@techstark/opencv-js": "5.0.0-release.1",
     "hono": "4.13.17",
     "nanoid": "5.1.6",
     "opentype.js": "1.3.4",
