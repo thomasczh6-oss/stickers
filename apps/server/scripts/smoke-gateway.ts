@@ -2,7 +2,10 @@
  * Makes one real sticker pack end to end and writes it to disk, plus a preview sheet.
  *
  *   pnpm --filter @stickers/server smoke:gateway -- --prompt "a corgi in a hoodie" --kind animated
+ *   pnpm --filter @stickers/server smoke:gateway -- --describe "I'm a boxer, chibi me throwing punches" --count 6
  *   IMAGE_PROVIDER=mock pnpm --filter @stickers/server smoke:gateway      # offline
+ *
+ * --describe runs the sticker planner (TEXT_MODEL) first and makes the pack it plans.
  *
  * Output goes to ./out/smoke-<time>/ (pack files, character.png, preview.png, pack.json).
  */
@@ -13,6 +16,7 @@ import sharp from "sharp";
 import { DEFAULT_ACTIONS, type ActionId, type StyleId } from "@stickers/shared";
 import { loadConfig } from "../src/config";
 import { generatePack } from "../src/pipeline/generatePack";
+import { createPlanner } from "../src/planner/planner";
 import { createImageProvider } from "../src/providers";
 import { LocalStorage } from "../src/storage/storage";
 
@@ -26,6 +30,8 @@ const { values } = parseArgs({
     kind: { type: "string", default: "animated" },
     actions: { type: "string", default: DEFAULT_ACTIONS.slice(0, 3).join(",") },
     captions: { type: "boolean", default: true },
+    describe: { type: "string" },
+    count: { type: "string", default: "6" },
     out: { type: "string" },
   },
 });
@@ -40,6 +46,15 @@ const photo = values.photo
   ? { data: await fs.readFile(values.photo), mimeType: values.photo.endsWith(".png") ? "image/png" : "image/jpeg" }
   : undefined;
 
+const kind = values.kind === "static" ? "static" : "animated";
+let plan;
+if (values.describe) {
+  const planner = createPlanner(cfg);
+  const t = Date.now();
+  plan = await planner.plan({ description: values.describe, count: Number(values.count), kind });
+  console.log(`[smoke] planned with ${planner.name} in ${((Date.now() - t) / 1000).toFixed(1)}s:\n${JSON.stringify(plan, null, 2)}`);
+}
+
 console.log(`[smoke] provider=${provider.name} kind=${values.kind} style=${values.style} out=${outDir}`);
 const started = Date.now();
 const pack = await generatePack(
@@ -47,10 +62,11 @@ const pack = await generatePack(
   {
     packId,
     request: {
-      prompt: photo ? undefined : values.prompt,
+      prompt: plan ? plan.character : photo ? undefined : values.prompt,
       style: values.style as StyleId,
-      kind: values.kind === "static" ? "static" : "animated",
-      actions: values.actions!.split(",") as ActionId[],
+      kind,
+      actions: plan ? [] : (values.actions!.split(",") as ActionId[]),
+      ...(plan ? { stickers: plan.stickers, packName: plan.packName } : {}),
       captions: values.captions,
     },
     photo,
@@ -60,6 +76,7 @@ const pack = await generatePack(
 
 const dir = path.join(outDir, "packs", packId);
 await fs.writeFile(path.join(outDir, "pack.json"), JSON.stringify(pack, null, 2));
+if (plan) await fs.writeFile(path.join(outDir, "plan.json"), JSON.stringify(plan, null, 2));
 await fs.copyFile(path.join(dir, "source/character.png"), path.join(outDir, "character.png"));
 
 // Preview: the first frame of every sticker on a chat-like background, plus file sizes.

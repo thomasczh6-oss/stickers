@@ -3,7 +3,7 @@ import type { StoredRequest } from "../db/repo";
 import { type ImageProvider, ProviderError } from "../providers";
 import type { Storage } from "../storage/storage";
 import { encodeAnimated, encodeStatic, encodeTrayIcon, inspectSticker, pingPong } from "./encode";
-import { captionFontCovers, composeFrames, removeBackground, sliceGrid } from "./image";
+import { captionFontCovers, composeFrames, fitCaption, removeBackground, sliceGrid } from "./image";
 import { characterPrompt, posePrompt, SHEET, spriteSheetPrompt } from "./prompts";
 
 export interface GenerateDeps {
@@ -54,12 +54,11 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
   await deps.storage.put(`${prefix}/source/character.png`, character, "image/png");
   await progress("character");
 
-  // 2. One sticker per action.
-  const results = await mapLimit(request.actions, deps.stickerConcurrency, async (actionId, index) => {
-    const action = findAction(actionId);
-    if (!action) throw new Error(`unknown action ${actionId}`);
+  // 2. One sticker per action (preset or the user's own).
+  const specs = stickerSpecs(request);
+  const results = await mapLimit(specs, deps.stickerConcurrency, async (action, index) => {
     const reference = [{ data: character, mimeType: "image/png" }];
-    const caption = request.captions ? captionText(action.id, action.label, request.locale) : undefined;
+    const caption = action.caption ? fitCaption(action.caption) : undefined;
     try {
       let file: Buffer;
       let firstFrame: Buffer;
@@ -75,7 +74,7 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
         await deps.storage.put(`${prefix}/source/${action.id}-sheet.png`, sheet, "image/png");
         const cells = await sliceGrid(sheet, SHEET.columns, SHEET.rows);
         const keyed = await Promise.all(cells.map((c) => removeBackground(c)));
-        const frames = await composeFrames(keyed, { outline: true, caption, align: LEAVES_GROUND.has(action.id) ? "horizontal" : "feet" });
+        const frames = await composeFrames(keyed, { outline: true, caption, align: action.wholeBody ? "horizontal" : "feet" });
         firstFrame = frames[0]!;
         const seq = pingPong(frames);
         file = await encodeAnimated(seq, seq.map((_, i) => (i === 0 ? KEY_FRAME_MS : FRAME_MS)));
@@ -98,8 +97,8 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
         fileName,
         url: deps.storage.url(`${prefix}/${fileName}`),
         bytes: file.length,
-        emojis: [...action.emojis].slice(0, WA.EMOJI_MAX),
-        accessibilityText: `${action.label}: a character ${action.pose}`.slice(0, animated ? WA.ACCESSIBILITY_ANIMATED_MAX : WA.ACCESSIBILITY_STATIC_MAX),
+        emojis: action.emojis.slice(0, WA.EMOJI_MAX),
+        accessibilityText: `${action.label ? `${action.label}: ` : ""}a character ${action.pose}`.slice(0, animated ? WA.ACCESSIBILITY_ANIMATED_MAX : WA.ACCESSIBILITY_STATIC_MAX),
       };
       return { sticker, firstFrame };
     } catch (e) {
@@ -112,7 +111,7 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
 
   const ok = results.filter((r): r is NonNullable<typeof r> => r !== undefined);
   if (ok.length < WA.PACK_MIN_STICKERS) {
-    throw new ProviderError(`only ${ok.length} of ${request.actions.length} stickers could be made; a WhatsApp pack needs at least ${WA.PACK_MIN_STICKERS}`);
+    throw new ProviderError(`only ${ok.length} of ${specs.length} stickers could be made; a WhatsApp pack needs at least ${WA.PACK_MIN_STICKERS}`);
   }
 
   // 3. Tray icon from the first sticker.
@@ -155,6 +154,49 @@ function defaultPackName(req: StoredRequest) {
 
 /** Motions where the whole body moves up or down, so pinning the feet would erase it. */
 const LEAVES_GROUND = new Set<string>(["party", "shock"]);
+
+interface StickerSpec {
+  /** Used in file names of the source images. */
+  id: string;
+  label: string;
+  pose: string;
+  motion: string;
+  caption?: string;
+  emojis: string[];
+  wholeBody: boolean;
+}
+
+/** Fallback motion for a custom sticker that only describes a pose. */
+const defaultMotion = (pose: string) => `acting out "${pose}" with big, lively cartoon movement, then coming back to the start`;
+const DEFAULT_EMOJIS = ["😀"];
+
+/** Presets and custom stickers become the same list of things to draw. */
+export function stickerSpecs(req: StoredRequest): StickerSpec[] {
+  if (req.stickers?.length) {
+    return req.stickers.map((s, i) => ({
+      id: `custom${String(i + 1).padStart(2, "0")}`,
+      label: s.caption ?? "",
+      pose: s.pose,
+      motion: s.motion || defaultMotion(s.pose),
+      caption: s.caption || undefined,
+      emojis: s.emojis?.length ? s.emojis : DEFAULT_EMOJIS,
+      wholeBody: s.wholeBody === true,
+    }));
+  }
+  return req.actions.map((actionId) => {
+    const a = findAction(actionId);
+    if (!a) throw new Error(`unknown action ${actionId}`);
+    return {
+      id: a.id,
+      label: a.label,
+      pose: a.pose,
+      motion: a.motion,
+      caption: req.captions ? captionText(a.id, a.label, req.locale) : undefined,
+      emojis: [...a.emojis],
+      wholeBody: LEAVES_GROUND.has(a.id),
+    };
+  });
+}
 
 async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   let last: unknown;

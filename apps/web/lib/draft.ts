@@ -1,4 +1,4 @@
-import { ACTIONS, CREATE_LIMITS, DEFAULT_ACTIONS, STYLES, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, CREATE_LIMITS, DEFAULT_ACTIONS, STYLES, type ActionId, type StickerPlan, type StyleId } from "@stickers/shared";
 
 /** Everything the create form holds, so a failed job can reopen the form exactly as it was. */
 export interface CreateDraft {
@@ -10,6 +10,11 @@ export interface CreateDraft {
   actions: ActionId[];
   captions: boolean;
   packName: string;
+  /** "Make it yours": the free-text description, how many stickers, and the edited plan. */
+  mode: "presets" | "custom";
+  description: string;
+  count: number;
+  plan?: StickerPlan;
 }
 
 const KEY = "stickers.createDraft";
@@ -66,5 +71,24 @@ function clean(d: Partial<CreateDraft>): CreateDraft | undefined {
     actions: kept.length ? kept : DEFAULT_ACTIONS,
     captions: d.captions !== false,
     packName: typeof d.packName === "string" ? d.packName : "",
+    ...cleanCustom(d),
+  };
+}
+
+/** The "Make it yours" part. A plan with a broken shape is dropped rather than half restored. */
+export function cleanCustom(d: Partial<Pick<CreateDraft, "mode" | "description" | "count" | "plan">>) {
+  const plan = d.plan;
+  const planOk =
+    !!plan &&
+    typeof plan.character === "string" &&
+    typeof plan.packName === "string" &&
+    Array.isArray(plan.stickers) &&
+    plan.stickers.every((st) => st && typeof st.pose === "string");
+  const count = typeof d.count === "number" ? d.count : 6;
+  return {
+    mode: d.mode === "custom" ? ("custom" as const) : ("presets" as const),
+    description: typeof d.description === "string" ? d.description : "",
+    count: Math.min(CREATE_LIMITS.MAX_ACTIONS, Math.max(CREATE_LIMITS.MIN_ACTIONS, Math.round(count))),
+    plan: planOk ? plan : undefined,
   };
 }

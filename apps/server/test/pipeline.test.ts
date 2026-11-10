@@ -7,7 +7,7 @@ import sharp from "sharp";
 import { ACTIONS, STYLES, WA } from "@stickers/shared";
 import { inspectSticker } from "../src/pipeline/encode";
 import { generatePack } from "../src/pipeline/generatePack";
-import { addOutline, alignFrames, captionFontCovers, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
+import { addOutline, alignFrames, captionFontCovers, fitCaption, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
 import { characterPrompt, spriteSheetPrompt } from "../src/pipeline/prompts";
 import { MockImageProvider } from "../src/providers/mock";
 import { LocalStorage } from "../src/storage/storage";
@@ -131,5 +131,15 @@ test("alignFrames pins drifting frames to the first frame's feet", () => {
 
 test("caption font covers the Western European captions", () => {
   for (const text of ["¡Hola!", "Je t’aime", "Coucou !", "Oh là là", "Hab dich lieb", "Adoro-te"]) assert.ok(captionFontCovers(text), text);
-  assert.equal(captionFontCovers("哈哈哈"), false);
+  assert.ok(captionFontCovers("哈哈哈"));
+  assert.equal(captionFontCovers("🥊"), false);
+});
+
+test("captions keep only what the fonts can draw (Latin and CJK)", () => {
+  assert.equal(fitCaption("KO!"), "KO!");
+  assert.equal(fitCaption("¡Olé, señor!"), "¡Olé, señor!");
+  assert.equal(fitCaption("拳击 KO 🥊"), "拳击 KO");
+  assert.equal(fitCaption("頑張って"), "頑張って");
+  assert.equal(fitCaption("화이팅!"), "화이팅!");
+  assert.equal(fitCaption("🥊🔥"), undefined);
 });
