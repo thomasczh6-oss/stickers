@@ -453,6 +453,20 @@ function loadCaptionFont(): opentype.Font {
 }
 
 /**
+ * Keeps only the characters the caption font can draw (Latin scripts), so a caption with
+ * CJK or emoji does not come out as empty boxes. Returns undefined when nothing is left.
+ */
+export function fitCaption(text: string): string | undefined {
+  const font = loadCaptionFont();
+  const kept = Array.from(text)
+    .filter((ch) => ch === " " || font.charToGlyphIndex(ch) > 0)
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /[\p{L}\p{N}]/u.test(kept) ? kept : undefined;
+}
+
+/**
  * Prints a caption along the bottom: white letters with a thick dark outline, the classic
  * sticker look. Text is turned into vector paths with the bundled font, so it renders the
  * same on every server whatever fonts are installed.

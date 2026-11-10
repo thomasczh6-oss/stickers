@@ -1,19 +1,23 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { parseCreatePackRequest, ACTIONS, STYLES } from "@stickers/shared";
+import { parseCreatePackRequest, parsePlanRequest, ACTIONS, STYLES } from "@stickers/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { nanoid } from "nanoid";
 import type { Config } from "../config";
 import { type Repo, type StoredRequest, toJob } from "../db/repo";
+import { createPlanner, type Planner } from "../planner/planner";
+import { ProviderError } from "../providers";
 import { LocalStorage, type Storage } from "../storage/storage";
 
 const DEVICE_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const CONTENT_TYPES: Record<string, string> = { ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".json": "application/json" };
 
-export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
+export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage; planner?: Planner }) {
   const { cfg, repo, storage } = deps;
+  const planner = deps.planner ?? createPlanner(cfg);
+  const planLimiter = createHourlyLimiter(cfg.maxPlansPerDevicePerHour);
   const app = new Hono();
 
   app.use(
@@ -39,6 +43,28 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
       actions: ACTIONS.map(({ id, label, emojis }) => ({ id, label, emojis })),
     }),
   );
+
+  /** Turns the user's own idea into an editable list of stickers (character, poses, captions). */
+  app.post("/v1/plan", bodyLimit({ maxSize: 64 * 1024, onError: (c) => c.json({ error: "request too large" }, 413) }), async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "body must be JSON" }, 400);
+    }
+    const parsed = parsePlanRequest(body);
+    if (!parsed.ok) return c.json({ error: "invalid request", details: parsed.errors }, 400);
+    if (!planLimiter.take(deviceId)) return c.json({ error: "too many ideas in a short time; try again later" }, 429);
+    try {
+      return c.json({ plan: await planner.plan(parsed.value) });
+    } catch (e) {
+      console.warn("[plan] failed:", (e as Error).message);
+      const status = e instanceof ProviderError && e.status === 400 ? 422 : 502;
+      return c.json({ error: status === 422 ? "We couldn't plan stickers from that description. Try wording it differently." : "Couldn't plan your stickers right now. Please try again." }, status);
+    }
+  });
 
   app.post("/v1/packs", bodyLimit({ maxSize: 12 * 1024 * 1024, onError: (c) => c.json({ error: "request too large (max 12MB)" }, 413) }), async (c) => {
     const deviceId = c.req.header("x-device-id") ?? "";
@@ -67,7 +93,7 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
       await storage.put(stored.photoKey, Buffer.from(photo.base64, "base64"), photo.mimeType);
     }
     // character + one step per sticker + packaging
-    const row = await repo.insertJob({ id: jobId, deviceId, request: stored, total: stored.actions.length + 2 });
+    const row = await repo.insertJob({ id: jobId, deviceId, request: stored, total: (stored.stickers?.length ?? stored.actions.length) + 2 });
     return c.json({ job: toJob(row) }, 202);
   });
 
@@ -106,4 +132,25 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
   }
 
   return app;
+}
+
+/** Small in-memory per-key limit over a sliding hour. Enough for one server; use Redis when scaling out. */
+function createHourlyLimiter(max: number) {
+  const hits = new Map<string, number[]>();
+  return {
+    take(key: string): boolean {
+      const now = Date.now();
+      const recent = (hits.get(key) ?? []).filter((t) => now - t < 3_600_000);
+      if (recent.length >= max) {
+        hits.set(key, recent);
+        return false;
+      }
+      recent.push(now);
+      hits.set(key, recent);
+      if (hits.size > 10_000) {
+        for (const [k, times] of hits) if (now - times[times.length - 1]! >= 3_600_000) hits.delete(k);
+      }
+      return true;
+    },
+  };
 }

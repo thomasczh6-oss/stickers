@@ -1,4 +1,4 @@
-import { ACTIONS, CREATE_LIMITS, DEFAULT_ACTIONS, parseCreatePackRequest, STYLES, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, CREATE_LIMITS, DEFAULT_ACTIONS, isPlanReady, parseCreatePackRequest, STYLES, type ActionId, type StickerPlan, type StyleId } from "@stickers/shared";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -6,12 +6,14 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CustomStickers } from "@/components/CustomStickers";
 import { api } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { C, F } from "@/lib/theme";
 
 type Photo = { uri: string; base64: string };
 type Source = "photo" | "describe";
+type Mode = "presets" | "custom";
 
 const STYLE_IMAGES: Record<StyleId, number> = {
   cartoon: require("@/assets/images/styles/cartoon.png"),
@@ -44,6 +46,8 @@ export default function Create() {
   const [actions, setActions] = useState<ActionId[]>(DEFAULT_ACTIONS);
   const [animated, setAnimated] = useState(true);
   const [captions, setCaptions] = useState(true);
+  const [mode, setMode] = useState<Mode>("presets");
+  const [plan, setPlan] = useState<StickerPlan>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -53,18 +57,20 @@ export default function Create() {
   };
 
   const usePhoto = source === "photo" && photo;
-  const ready = (!!usePhoto || prompt.trim().length > 0) && actions.length >= CREATE_LIMITS.MIN_ACTIONS;
+  const custom = mode === "custom";
+  const ready = custom ? isPlanReady(plan) : (!!usePhoto || prompt.trim().length > 0) && actions.length >= CREATE_LIMITS.MIN_ACTIONS;
+  const count = custom ? (plan?.stickers.length ?? 0) : actions.length;
 
   async function submit() {
     tap();
     setError(undefined);
     const parsed = parseCreatePackRequest({
-      prompt: prompt.trim() || undefined,
+      // In custom mode the plan's character already includes what the user wrote in step 1.
+      prompt: (custom ? plan?.character.trim() : prompt.trim()) || undefined,
       photo: usePhoto ? { base64: photo.base64, mimeType: "image/jpeg" } : undefined,
       style,
       kind: animated ? "animated" : "static",
-      actions,
-      captions,
+      ...(custom ? { actions: [], stickers: plan?.stickers, packName: plan?.packName } : { actions, captions }),
     });
     if (!parsed.ok) return setError(parsed.errors.join(". "));
     setBusy(true);
@@ -174,18 +180,36 @@ export default function Create() {
           </ScrollView>
         </Section>
 
-        <Section n={3} title="Reactions" aside={`${actions.length} of ${CREATE_LIMITS.MAX_ACTIONS}`}>
-          <View style={s.wrap}>
-            {ACTIONS.map((a) => {
-              const on = actions.includes(a.id);
-              return (
-                <Pressable key={a.id} onPress={() => toggle(a.id)} style={[s.chip, on && s.chipOn]}>
-                  <Text style={s.emoji}>{a.emojis[0]}</Text>
-                  <Text style={[s.chipText, on && s.chipTextOn]}>{a.label}</Text>
-                </Pressable>
-              );
-            })}
+        <Section n={3} title="What should they do?" aside={custom ? undefined : `${actions.length} of ${CREATE_LIMITS.MAX_ACTIONS}`}>
+          <View style={s.segment}>
+            {(["presets", "custom"] as const).map((k) => (
+              <Pressable
+                key={k}
+                onPress={() => {
+                  tap();
+                  setMode(k);
+                }}
+                style={[s.segmentItem, mode === k && s.segmentOn]}
+              >
+                <Text style={[s.segmentText, mode === k && s.segmentTextOn]}>{k === "presets" ? "Classic" : "✨ Make it yours"}</Text>
+              </Pressable>
+            ))}
           </View>
+          {custom ? (
+            <CustomStickers plan={plan} onPlan={setPlan} kind={animated ? "animated" : "static"} hasPhoto={Boolean(usePhoto)} characterHint={prompt} />
+          ) : (
+            <View style={s.wrap}>
+              {ACTIONS.map((a) => {
+                const on = actions.includes(a.id);
+                return (
+                  <Pressable key={a.id} onPress={() => toggle(a.id)} style={[s.chip, on && s.chipOn]}>
+                    <Text style={s.emoji}>{a.emojis[0]}</Text>
+                    <Text style={[s.chipText, on && s.chipTextOn]}>{a.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </Section>
 
         <Section n={4} title="Finishing touches">
@@ -196,13 +220,15 @@ export default function Create() {
             </View>
             <Switch value={animated} onValueChange={setAnimated} trackColor={{ true: C.brand, false: C.line }} thumbColor="#fff" />
           </View>
-          <View style={[s.toggle, { borderTopWidth: 1, borderColor: C.line }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.toggleTitle}>Captions</Text>
-              <Text style={s.toggleBody}>Adds “LOL”, “OMG”… under each one</Text>
+          {!custom && (
+            <View style={[s.toggle, { borderTopWidth: 1, borderColor: C.line }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.toggleTitle}>Captions</Text>
+                <Text style={s.toggleBody}>Adds “LOL”, “OMG”… under each one</Text>
+              </View>
+              <Switch value={captions} onValueChange={setCaptions} trackColor={{ true: C.brand, false: C.line }} thumbColor="#fff" />
             </View>
-            <Switch value={captions} onValueChange={setCaptions} trackColor={{ true: C.brand, false: C.line }} thumbColor="#fff" />
-          </View>
+          )}
         </Section>
 
         {error && <Text style={s.error}>{error}</Text>}
@@ -210,9 +236,17 @@ export default function Create() {
 
       <View style={[s.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable style={({ pressed }) => [s.button, (!ready || busy) && s.buttonOff, pressed && { opacity: 0.85 }]} disabled={busy || !ready} onPress={submit}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>Make {actions.length} stickers</Text>}
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>Make {count} stickers</Text>}
         </Pressable>
-        <Text style={s.note}>{ready ? "Takes about a minute" : source === "photo" ? "Choose a photo, or describe your character" : "Describe your character to start"}</Text>
+        <Text style={s.note}>
+          {ready
+            ? "Takes about a minute"
+            : custom
+              ? "Describe your stickers, then tap “Write my stickers”"
+              : source === "photo"
+                ? "Choose a photo, or describe your character"
+                : "Describe your character to start"}
+        </Text>
       </View>
     </View>
   );

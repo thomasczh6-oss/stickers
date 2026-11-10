@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseCreatePackRequest, toPackIdentifier, validatePackMeta, validateStickerFile, WA } from "../src/index";
+import { parseCreatePackRequest, parsePlanRequest, sanitizePlan, toPackIdentifier, validatePackMeta, validateStickerFile, WA } from "../src/index";
 
 test("accepts a minimal prompt request", () => {
   const r = parseCreatePackRequest({ prompt: "a corgi", style: "cartoon", kind: "animated", actions: ["wave", "laugh", "love"] });
@@ -41,4 +41,49 @@ test("pack meta needs 3 stickers with emoji", () => {
   assert.equal(validatePackMeta({ ...base, stickers: [sticker, sticker] }).length, 1);
   assert.deepEqual(validatePackMeta({ ...base, stickers: [sticker, sticker, sticker] }), []);
   assert.equal(validatePackMeta({ ...base, stickers: [sticker, sticker, { ...sticker, emojis: [] }] }).length, 1);
+});
+
+test("custom stickers replace preset actions", () => {
+  const stickers = [
+    { pose: "throwing a right hook", motion: "punching again and again", caption: "KO!", emojis: ["🥊", "abc", "💥"] },
+    { pose: "raising the belt", caption: "Champ" },
+    { pose: "  dodging  a punch ", wholeBody: true },
+  ];
+  const r = parseCreatePackRequest({ prompt: "chibi boxer", style: "cartoon", kind: "animated", stickers });
+  assert.equal(r.ok, true);
+  if (r.ok) {
+    assert.equal(r.value.stickers?.length, 3);
+    assert.deepEqual(r.value.stickers?.[0]?.emojis, ["🥊", "💥"], "non-emoji strings are dropped");
+    assert.equal(r.value.stickers?.[2]?.pose, "dodging a punch");
+    assert.equal(r.value.stickers?.[2]?.wholeBody, true);
+    assert.deepEqual(r.value.actions, []);
+  }
+  const bad = parseCreatePackRequest({ prompt: "x", style: "cartoon", kind: "animated", stickers: [{ pose: "a" }, { pose: "" }, { pose: "c", caption: "x".repeat(30) }] });
+  assert.equal(bad.ok, false);
+  if (!bad.ok) assert.equal(bad.errors.length, 2);
+  assert.equal(parseCreatePackRequest({ prompt: "x", style: "cartoon", kind: "animated", stickers: [{ pose: "a" }] }).ok, false);
+});
+
+test("plan requests and planner output are cleaned", () => {
+  assert.equal(parsePlanRequest({ description: "" }).ok, false);
+  const r = parsePlanRequest({ description: "boxer", count: 4 });
+  assert.deepEqual(r.ok && r.value, { description: "boxer", count: 4, kind: "animated", hasPhoto: false });
+  const plan = sanitizePlan(
+    {
+      character: "a chibi boxer with red gloves",
+      packName: "Boxer",
+      stickers: [
+        { pose: "jab", caption: "Float like a butterfly sting" },
+        { pose: "" },
+        { pose: "victory", caption: "Champ", emojis: ["🏆"] },
+        { pose: "guard up" },
+        { pose: "extra" },
+      ],
+    },
+    3,
+  );
+  assert.ok(plan);
+  assert.equal(plan.stickers.length, 3);
+  assert.equal(plan.stickers[0]!.caption, "Float like a");
+  assert.equal(sanitizePlan({ character: "x", stickers: [{ pose: "a" }] }, 6), undefined);
 });
