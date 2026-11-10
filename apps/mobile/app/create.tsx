@@ -1,4 +1,4 @@
-import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, actionName, ApiRequestError, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -79,8 +79,10 @@ export default function Create() {
       const { job } = await (await api()).createPack(parsed.value);
       router.replace({ pathname: "/job/[id]", params: { id: job.id } });
     } catch (e) {
-      setError((e as Error).message);
       setBusy(false);
+      // Today's free packs are used up: explain it on the plans screen instead of showing a raw error.
+      if (e instanceof ApiRequestError && e.code === "quota") return router.push({ pathname: "/upgrade", params: { reason: "quota" } });
+      setError((e as Error).message);
     }
   }
 

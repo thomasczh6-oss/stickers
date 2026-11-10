@@ -1,6 +1,6 @@
 "use client";
 
-import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, actionName, ApiRequestError, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
@@ -76,8 +76,10 @@ export function CreateForm() {
       const { job } = await api().createPack(parsed.value);
       router.push(`/jobs/${job.id}`);
     } catch (err) {
-      setError((err as Error).message);
       setBusy(false);
+      // Today's free packs are used up: the pricing page explains it better than a raw error.
+      if (err instanceof ApiRequestError && err.code === "quota") return router.push("/pricing?reason=quota");
+      setError((err as Error).message);
     }
   }
 

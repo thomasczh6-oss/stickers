@@ -38,6 +38,12 @@ export async function checkServer(url: string): Promise<string | undefined> {
   return body.model;
 }
 
+/** After "Delete all my data": forget this phone's id so the next pack starts a fresh, empty history. */
+export async function resetDeviceId(): Promise<void> {
+  await AsyncStorage.removeItem(KEY);
+  client = undefined;
+}
+
 export function api(): Promise<ApiClient> {
   client ??= Promise.all([getServerUrl(), deviceId()]).then(([url, id]) => createApiClient(url, id));
   return client;

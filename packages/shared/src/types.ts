@@ -58,7 +58,31 @@ export interface StickerPack {
   createdAt: string;
 }
 
+/** How many free packs this device has left today. limit 0 means no limit. */
+export interface Usage {
+  plan: "free" | "pro";
+  limit: number;
+  used: number;
+  remaining: number;
+  /** When the daily allowance resets (next UTC midnight), ISO time. */
+  resetsAt: string;
+}
+
+export type FeedbackKind = "bug" | "idea" | "question" | "other";
+
+export interface FeedbackRequest {
+  kind: FeedbackKind;
+  message: string;
+  /** Optional, so we can write back. */
+  email?: string;
+  platform?: "ios" | "android" | "web";
+  appVersion?: string;
+  locale?: string;
+}
+
 export interface ApiError {
   error: string;
   details?: unknown;
+  /** Machine-readable reason, e.g. "quota" when the free packs for today are used up. */
+  code?: string;
 }

@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Privacy" };
 // Plain-language draft written for launch in the US and EU. Have it reviewed before release.
 export default function Privacy() {
   return (
-    <LegalPage title="Privacy" updated="November 9, 2026">
+    <LegalPage title="Privacy" updated="November 10, 2026">
       <p>
         Stickers AI turns a photo or a short description into a sticker pack. We collect as little as we can to do that, and we
         don’t sell your data.
@@ -28,6 +28,13 @@ export default function Privacy() {
           your name, email or phone number.
         </li>
         <li>
+          <strong>Messages you send us</strong> through Help or Send feedback, and your email address if you choose to give it, so
+          we can answer.
+        </li>
+        <li>
+          <strong>How many packs you made today</strong>, counted per device ID, to apply the daily free allowance.
+        </li>
+        <li>
           <strong>Basic technical logs</strong> (such as IP address and errors), kept briefly to keep the service secure and working.
         </li>
       </ul>
@@ -38,9 +45,16 @@ export default function Privacy() {
       </p>
       <h2>Who helps us</h2>
       <p>
-        We use an AI image provider to draw the stickers and a cloud provider to store and serve them. They process data on our
+        Your photo or description is sent to our AI image provider, which draws the stickers; the app and website tell you this
+        before your first pack. We also use a cloud provider to store and serve your packs. Both process data on our
         behalf, under contract, and only for this purpose. Your data may be processed outside your country, with appropriate
         safeguards such as Standard Contractual Clauses.
+      </p>
+      <h2>Deleting your data</h2>
+      <p>
+        In the app, open Settings and tap <strong>Delete all my data</strong>. On the web, use the{" "}
+        <a href="/delete-data">Delete your data</a> page. Your packs, stickers, descriptions and messages are deleted right away;
+        photos are already deleted once each pack is made. Technical logs are removed within 30 days.
       </p>
       <h2>Your rights</h2>
       <p>

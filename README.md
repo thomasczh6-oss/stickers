@@ -75,6 +75,8 @@ pnpm gen:assets     # 用 image 模型生成 App 图标、启动图、分享图�
 
 ## 上线前要定的事
 
+上架商店需要的页面、功能和后台要填的内容见 [docs/launch-checklist.md](docs/launch-checklist.md)。
+
 - App 名称、Bundle ID（现在是占位的 `ai.stickers.app`）、Web 域名（`WEB_DOMAIN`）。
 - Apple Team ID 和 Android 签名证书指纹，用于通用链接（见 `apps/web/.env.example`）。
 - 生产数据库（Postgres）和对象存储（S3 兼容，配 CDN 地址 `S3_PUBLIC_BASE_URL`）。

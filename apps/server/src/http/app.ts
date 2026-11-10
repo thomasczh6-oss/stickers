@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { parseCreatePackRequest, ACTIONS, STYLES } from "@stickers/shared";
+import { parseCreatePackRequest, parseFeedbackRequest, ACTIONS, STYLES, type Usage } from "@stickers/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
@@ -21,7 +21,7 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
     cors({
       origin: (origin) => (cfg.corsOrigins.includes("*") || cfg.corsOrigins.includes(origin) ? origin : null),
       allowHeaders: ["content-type", "x-device-id"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     }),
   );
 
@@ -29,6 +29,20 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
     console.error("[http]", err);
     return c.json({ error: "internal error" }, 500);
   });
+
+  /** Start of the current UTC day and the next one: the free allowance resets at UTC midnight. */
+  const today = () => {
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    return { start, next: new Date(start.getTime() + 86_400_000) };
+  };
+
+  async function usageFor(deviceId: string): Promise<Usage> {
+    const { start, next } = today();
+    const limit = cfg.freePacksPerDay;
+    const used = await repo.countJobsSince(deviceId, start);
+    return { plan: "free", limit, used, remaining: limit > 0 ? Math.max(0, limit - used) : Number.MAX_SAFE_INTEGER, resetsAt: next.toISOString() };
+  }
 
   app.get("/health", (c) => c.json({ ok: true, provider: cfg.provider, model: cfg.provider === "gateway" ? cfg.gateway.imageModel : "mock" }));
 
@@ -56,6 +70,10 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
     if ((await repo.countActiveJobs(deviceId)) >= cfg.maxActiveJobsPerDevice) {
       return c.json({ error: "you already have packs being made; wait for them to finish" }, 429);
     }
+    const usage = await usageFor(deviceId);
+    if (usage.limit > 0 && usage.remaining <= 0) {
+      return c.json({ error: "you have used today’s free packs", code: "quota", details: usage }, 402);
+    }
 
     const jobId = `job_${nanoid(16)}`;
     const { photo, ...rest } = parsed.value;
@@ -80,6 +98,43 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
     const deviceId = c.req.header("x-device-id") ?? "";
     if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
     return c.json({ packs: await repo.listPacks(deviceId) });
+  });
+
+  /** The device's plan and free packs left today. */
+  app.get("/v1/me", async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    return c.json({ usage: await usageFor(deviceId) });
+  });
+
+  /** "Delete all my data": every pack, job, feedback message and file made with this device id. */
+  app.delete("/v1/me", async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    const { packIds, jobIds } = await repo.deleteDeviceData(deviceId);
+    await Promise.all([
+      ...packIds.map((id) => storage.deleteFolder(`packs/${id}`)),
+      ...jobIds.map((id) => storage.deleteFolder(`uploads/${id}`)),
+    ]);
+    return c.json({ deleted: { packs: packIds.length, jobs: jobIds.length } });
+  });
+
+  app.post("/v1/feedback", bodyLimit({ maxSize: 32 * 1024, onError: (c) => c.json({ error: "message too long" }, 413) }), async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "body must be JSON" }, 400);
+    }
+    const parsed = parseFeedbackRequest(body);
+    if (!parsed.ok) return c.json({ error: "invalid request", details: parsed.errors }, 400);
+    if ((await repo.countFeedbackSince(deviceId, today().start)) >= 20) return c.json({ error: "too many messages today" }, 429);
+    const f = parsed.value;
+    await repo.insertFeedback({ id: `fb_${nanoid(16)}`, deviceId, ...f });
+    console.info(`[feedback] ${f.kind} from ${f.platform ?? "?"}${f.email ? " (wants a reply)" : ""}`);
+    return c.json({ ok: true }, 201);
   });
 
   app.get("/v1/packs/:id", async (c) => {

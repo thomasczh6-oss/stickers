@@ -56,6 +56,20 @@ export function createRepo(db: Db) {
       return Number(rows[0]?.n ?? 0);
     },
 
+    /** Packs started since `since` that did not fail. Failed jobs don't count toward the free allowance. */
+    async countJobsSince(deviceId: string, since: Date) {
+      const { rows } = await db.query<{ n: number | string }>(
+        `select count(*)::int as n from jobs where device_id = $1 and status <> 'failed' and created_at >= $2`,
+        [deviceId, since.toISOString()],
+      );
+      return Number(rows[0]?.n ?? 0);
+    },
+
+    async jobExists(id: string) {
+      const { rows } = await db.query(`select 1 from jobs where id = $1`, [id]);
+      return rows.length > 0;
+    },
+
     /** Takes the oldest queued job and marks it running. Safe with several workers (SKIP LOCKED). */
     async claimNextJob() {
       const { rows } = await db.query<JobRow>(
@@ -113,6 +127,33 @@ export function createRepo(db: Db) {
         [deviceId, limit],
       );
       return rows.map((r) => (typeof r.data === "string" ? (JSON.parse(r.data) as StickerPack) : r.data));
+    },
+
+    async insertFeedback(f: { id: string; deviceId: string; kind: string; message: string; email?: string; platform?: string; appVersion?: string; locale?: string }) {
+      await db.query(
+        `insert into feedback (id, device_id, kind, message, email, platform, app_version, locale) values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [f.id, f.deviceId, f.kind, f.message, f.email ?? null, f.platform ?? null, f.appVersion ?? null, f.locale ?? null],
+      );
+    },
+
+    async countFeedbackSince(deviceId: string, since: Date) {
+      const { rows } = await db.query<{ n: number | string }>(`select count(*)::int as n from feedback where device_id = $1 and created_at >= $2`, [
+        deviceId,
+        since.toISOString(),
+      ]);
+      return Number(rows[0]?.n ?? 0);
+    },
+
+    /**
+     * Removes everything stored for a device: jobs, packs and feedback.
+     * Returns the pack and job ids so the caller can delete their files.
+     * Tables added later that hold per-device rows (published packs, reports) should be cleared here too.
+     */
+    async deleteDeviceData(deviceId: string) {
+      const packs = await db.query<{ id: string }>(`delete from packs where device_id = $1 returning id`, [deviceId]);
+      const jobs = await db.query<{ id: string }>(`delete from jobs where device_id = $1 returning id`, [deviceId]);
+      await db.query(`delete from feedback where device_id = $1`, [deviceId]);
+      return { packIds: packs.rows.map((r) => r.id), jobIds: jobs.rows.map((r) => r.id) };
     },
   };
 }

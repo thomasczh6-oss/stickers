@@ -1,7 +1,7 @@
 import { isLocale } from "./i18n";
 import { ACTIONS, STYLES } from "./presets";
 import { PACK_IDENTIFIER_PATTERN, WA } from "./spec";
-import type { CreatePackRequest, StickerPack } from "./types";
+import type { CreatePackRequest, FeedbackKind, FeedbackRequest, StickerPack } from "./types";
 
 export const CREATE_LIMITS = {
   MIN_ACTIONS: WA.PACK_MIN_STICKERS,
@@ -136,4 +136,26 @@ export function validateStickerFile(facts: StickerFileFacts, animated: boolean):
     issues.push("static sticker must have one frame");
   }
   return issues;
+}
+
+export const FEEDBACK_LIMITS = { MESSAGE_MIN: 3, MESSAGE_MAX: 4000, EMAIL_MAX: 200 } as const;
+const FEEDBACK_KINDS: FeedbackKind[] = ["bug", "idea", "question", "other"];
+
+/** Checks a feedback or support message. */
+export function parseFeedbackRequest(input: unknown): Result<FeedbackRequest> {
+  if (typeof input !== "object" || input === null) return { ok: false, errors: ["body must be a JSON object"] };
+  const b = input as Record<string, unknown>;
+  const errors: string[] = [];
+  const kind = FEEDBACK_KINDS.includes(b.kind as FeedbackKind) ? (b.kind as FeedbackKind) : undefined;
+  if (!kind) errors.push(`kind must be one of ${FEEDBACK_KINDS.join(", ")}`);
+  const message = typeof b.message === "string" ? b.message.trim() : "";
+  if (message.length < FEEDBACK_LIMITS.MESSAGE_MIN || message.length > FEEDBACK_LIMITS.MESSAGE_MAX) {
+    errors.push(`message must be ${FEEDBACK_LIMITS.MESSAGE_MIN} to ${FEEDBACK_LIMITS.MESSAGE_MAX} characters`);
+  }
+  const email = typeof b.email === "string" && b.email.trim() ? b.email.trim() : undefined;
+  if (email && (email.length > FEEDBACK_LIMITS.EMAIL_MAX || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) errors.push("email is not valid");
+  const platform = b.platform === "ios" || b.platform === "android" || b.platform === "web" ? b.platform : undefined;
+  const short = (v: unknown) => (typeof v === "string" && v.length <= 40 ? v : undefined);
+  if (errors.length) return { ok: false, errors };
+  return { ok: true, value: { kind: kind!, message, email, platform, appVersion: short(b.appVersion), locale: isLocale(b.locale) ? b.locale : undefined } };
 }

@@ -38,3 +38,16 @@ export function styleGroupName(m: Messages, id: string): string {
 export function actionName(m: Messages, id: string): string {
   return m.actions[id] ?? ACTIONS.find((a) => a.id === id)?.label ?? id;
 }
+
+/**
+ * Splits a template around {name} placeholders so the UI can render links in their place:
+ * parts("Agree to {terms}.") → ["Agree to ", { key: "terms" }, "."]
+ */
+export function parts(template: string): (string | { key: string })[] {
+  return template.split(/(\{\w+\})/).filter(Boolean).map((p) => (/^\{\w+\}$/.test(p) ? { key: p.slice(1, -1) } : p));
+}
+
+/** Whole hours (at least 1) from now until an ISO time, for "More in {h} h". */
+export function hoursUntil(iso: string, now = Date.now()): number {
+  return Math.max(1, Math.ceil((new Date(iso).getTime() - now) / 3_600_000));
+}
