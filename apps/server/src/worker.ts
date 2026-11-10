@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import type { JobRow, Repo } from "./db/repo";
 import { generatePack, type GenerateDeps } from "./pipeline/generatePack";
 import { ProviderError } from "./providers";
-import type { Storage } from "./storage/storage";
+import { packFileKeys, type Storage } from "./storage/storage";
 
 export interface WorkerDeps extends GenerateDeps {
   repo: Repo;
@@ -21,7 +21,7 @@ export async function processJob(deps: WorkerDeps, row: JobRow): Promise<void> {
       photo,
       onProgress: (done, step) => deps.repo.updateProgress(row.id, done, step),
     });
-    await deps.repo.insertPack(row.device_id, pack);
+    await deps.repo.insertPack(row.device_id, pack, { prompt: req.prompt });
     await deps.repo.finishJob(row.id, pack.id);
   } catch (e) {
     console.error(`[worker] job ${row.id} failed`, e);
@@ -39,6 +39,13 @@ function friendlyError(e: unknown): string {
     return e.message;
   }
   return "Something went wrong while making your stickers. Please try again.";
+}
+
+/** Deletes packs that sat in the bin for 30 days, with their files. */
+export async function purgeBin(deps: Pick<WorkerDeps, "repo" | "storage">, days = 30) {
+  for (const pack of await deps.repo.purgeDeletedPacks(days)) {
+    await Promise.all(packFileKeys(pack).map((key) => deps.storage.delete(key).catch(() => undefined)));
+  }
 }
 
 /** Polls the job table and runs up to `concurrency` jobs at once. */
@@ -62,8 +69,12 @@ export function startWorker(deps: WorkerDeps, opts: { concurrency: number; pollM
     }
   };
 
-  const reaper = setInterval(() => void deps.repo.requeueStaleJobs().catch(() => undefined), 5 * 60_000);
-  void deps.repo.requeueStaleJobs().catch(() => undefined);
+  const housekeeping = () => {
+    void deps.repo.requeueStaleJobs().catch(() => undefined);
+    void purgeBin(deps).catch((e) => console.warn("[worker] purge failed", e));
+  };
+  const reaper = setInterval(housekeeping, 5 * 60_000);
+  housekeeping();
   const loops = Array.from({ length: Math.max(1, opts.concurrency) }, loop);
 
   return {

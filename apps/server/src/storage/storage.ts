@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { StickerPack } from "@stickers/shared";
 import type { Config } from "../config";
 
 export interface Storage {
@@ -96,4 +97,12 @@ export class S3Storage implements Storage {
 
 export function createStorage(cfg: Config): Storage {
   return cfg.storage.kind === "s3" ? new S3Storage(cfg.storage) : new LocalStorage(cfg.storage.dir, cfg.publicBaseUrl);
+}
+
+/** Storage keys of a pack's files, read from their URLs (".../packs/<id>/01.webp" → "packs/<id>/01.webp"). */
+export function packFileKeys(pack: StickerPack): string[] {
+  return [pack.trayIconUrl, ...pack.stickers.map((s) => s.url)]
+    .map((url) => /\/(packs\/[^?#]+)/.exec(url)?.[1])
+    .filter((k): k is string => !!k)
+    .map(decodeURIComponent);
 }

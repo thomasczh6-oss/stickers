@@ -1,4 +1,4 @@
-import type { CreatePackRequest, Job, StickerPack } from "./types";
+import type { BulkPackAction, CreatePackRequest, Job, ListPacksQuery, ListPacksResponse, StickerPack } from "./types";
 
 export class ApiRequestError extends Error {
   constructor(
@@ -34,7 +34,22 @@ export function createApiClient(baseUrl: string, deviceId: string) {
     createPack: (req: CreatePackRequest) => call<{ job: Job }>("/v1/packs", { method: "POST", body: JSON.stringify(req) }),
     getJob: (jobId: string) => call<{ job: Job }>(`/v1/jobs/${encodeURIComponent(jobId)}`),
     getPack: (packId: string) => call<{ pack: StickerPack }>(`/v1/packs/${encodeURIComponent(packId)}`),
-    listMyPacks: () => call<{ packs: StickerPack[] }>("/v1/packs"),
+    /** One page of the device's packs. Without a query, the newest 24. */
+    listMyPacks: (query: ListPacksQuery = {}) => {
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== "") params.set(k, String(v));
+      const qs = params.toString();
+      return call<ListPacksResponse>(`/v1/packs${qs ? `?${qs}` : ""}`);
+    },
+    updatePack: (packId: string, patch: { name?: string; favorite?: boolean }) =>
+      call<{ pack: StickerPack }>(`/v1/packs/${encodeURIComponent(packId)}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    /** Moves a pack to the bin; restorePack brings it back (kept for 30 days). */
+    deletePack: (packId: string) => call<{ ok: true }>(`/v1/packs/${encodeURIComponent(packId)}`, { method: "DELETE" }),
+    restorePack: (packId: string) => call<{ pack: StickerPack }>(`/v1/packs/${encodeURIComponent(packId)}/restore`, { method: "POST" }),
+    duplicatePack: (packId: string, name?: string) =>
+      call<{ pack: StickerPack }>(`/v1/packs/${encodeURIComponent(packId)}/duplicate`, { method: "POST", body: JSON.stringify({ name }) }),
+    bulkPacks: (ids: string[], action: BulkPackAction) =>
+      call<{ updated: number }>("/v1/packs/bulk", { method: "POST", body: JSON.stringify({ ids, action }) }),
 
     /** Polls a job until it finishes. Calls onUpdate on every poll. */
     async waitForJob(jobId: string, onUpdate?: (job: Job) => void, intervalMs = 2000): Promise<Job> {

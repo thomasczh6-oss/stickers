@@ -15,7 +15,7 @@ import * as WhatsApp from "@/modules/whatsapp-stickers";
 type AddState = { kind: "idle" } | { kind: "saving"; done: number; total: number } | { kind: "opening" } | { kind: "added" } | { kind: "error"; message: string };
 
 export default function PackScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, add: autoAdd } = useLocalSearchParams<{ id: string; add?: string }>();
   const { m } = useI18n();
   const t = m.app.pack;
   const [pack, setPack] = useState<StickerPack>();
@@ -32,11 +32,22 @@ export default function PackScreen() {
         const { pack } = await (await api()).getPack(id);
         setPack(pack);
         if (await WhatsApp.isPackAdded(pack.identifier)) setAdd({ kind: "added" });
+        else if (autoAdd === "1") setStartAdd(true);
       } catch (e) {
         setError((e as Error).message);
       }
     })();
-  }, [id]);
+  }, [id, autoAdd]);
+
+  // Opened from "Add to WhatsApp" in My packs: start adding right away.
+  const [startAdd, setStartAdd] = useState(false);
+  useEffect(() => {
+    if (startAdd && pack) {
+      setStartAdd(false);
+      void addToWhatsApp();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startAdd, pack]);
 
   async function share() {
     if (!pack) return;
