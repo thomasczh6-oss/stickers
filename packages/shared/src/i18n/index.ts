@@ -1,4 +1,4 @@
-import { ACTIONS, STYLE_GROUPS, STYLES } from "../presets";
+import { ACTION_CATEGORIES, ACTIONS, PACK_THEMES, STYLE_GROUPS, STYLES } from "../presets";
 import { DEFAULT_LOCALE, type Locale } from "./locales";
 import { de } from "./messages/de";
 import { en, type Messages } from "./messages/en";
@@ -37,4 +37,14 @@ export function styleGroupName(m: Messages, id: string): string {
 /** A reaction's short label in this language. It is also the caption printed on the sticker. */
 export function actionName(m: Messages, id: string): string {
   return m.actions[id] ?? ACTIONS.find((a) => a.id === id)?.label ?? id;
+}
+
+/** A reaction picker heading ("Everyday", "Love") in this language. */
+export function actionCategoryName(m: Messages, id: string): string {
+  return m.actionCategories[id] ?? ACTION_CATEGORIES.find((c) => c.id === id)?.label ?? id;
+}
+
+/** A one-tap themed pack ("Everyday chat", "Holidays") in this language. */
+export function packThemeName(m: Messages, id: string): string {
+  return m.packThemes[id] ?? PACK_THEMES.find((t) => t.id === id)?.label ?? id;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ACTIONS, actionName, fmt, getMessages, LOCALES, matchLocale, parseAcceptLanguage, parseCreatePackRequest, STYLES, styleName } from "../src/index";
+import { ACTION_CATEGORIES, ACTIONS, actionName, PACK_THEMES, STYLE_GROUPS, fmt, getMessages, LOCALES, matchLocale, parseAcceptLanguage, parseCreatePackRequest, STYLES, styleName } from "../src/index";
 
 test("matches browser and phone languages to a supported locale", () => {
   assert.equal(matchLocale(["pt-BR", "en-US"]), "pt");
@@ -40,6 +40,9 @@ test("every language has every string, with the same placeholders", () => {
       assert.equal(placeholders(t), placeholders(text), `${locale}: placeholders differ in ${path}`);
     }
     for (const s of STYLES) assert.ok(getMessages(locale).styles[s.id], `${locale}: style ${s.id}`);
+    for (const g of STYLE_GROUPS) assert.ok(getMessages(locale).styleGroups[g.id], `${locale}: style group ${g.id}`);
+    for (const c of ACTION_CATEGORIES) assert.ok(getMessages(locale).actionCategories[c.id], `${locale}: category ${c.id}`);
+    for (const t of PACK_THEMES) assert.ok(getMessages(locale).packThemes[t.id], `${locale}: theme ${t.id}`);
   }
 });
 
@@ -56,7 +59,7 @@ test("reaction labels fit on a sticker in every language", () => {
 
 test("names fall back to English for styles and actions not translated yet", () => {
   const m = getMessages("de");
-  assert.equal(styleName(m, "watercolor"), "watercolor");
+  assert.equal(styleName(m, "not_a_style"), "not_a_style");
   assert.equal(styleName(m, "clay"), "Knete");
   assert.equal(actionName(m, "wave"), "Hallo!");
 });
@@ -75,4 +78,18 @@ test("the mobile app config declares the same languages", async () => {
   const list = config.match(/const LOCALES = (\[[^\]]*\])/)?.[1];
   assert.ok(list, "LOCALES not found in app.config.ts");
   assert.deepEqual(JSON.parse(list), [...LOCALES]);
+});
+
+test("every preset has a category, and themes only use real reactions within the pack limits", () => {
+  const ids = new Set<string>(ACTIONS.map((a) => a.id));
+  const cats = new Set<string>(ACTION_CATEGORIES.map((c) => c.id));
+  for (const a of ACTIONS) assert.ok(cats.has(a.category), `${a.id}: unknown category ${a.category}`);
+  for (const t of PACK_THEMES) {
+    assert.equal(new Set(t.actions).size, t.actions.length, `${t.id}: duplicate reactions`);
+    for (const a of t.actions) assert.ok(ids.has(a), `${t.id}: unknown reaction ${a}`);
+    const parsed = parseCreatePackRequest({ prompt: "a corgi", style: "cartoon", kind: "animated", actions: t.actions });
+    assert.ok(parsed.ok, `${t.id}: not a valid pack`);
+  }
+  const groups = new Set<string>(STYLE_GROUPS.map((g) => g.id));
+  for (const s of STYLES) assert.ok(groups.has(s.group), `${s.id}: unknown group`);
 });
