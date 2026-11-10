@@ -1,4 +1,4 @@
-import type { BulkPackAction, CreatePackRequest, Job, ListPacksQuery, ListPacksResponse, StickerPack } from "./types";
+import type { BulkPackAction, CreatePackRequest, Job, ListPacksQuery, ListPacksResponse, NotificationsResponse, StickerPack } from "./types";
 
 export class ApiRequestError extends Error {
   constructor(
@@ -50,6 +50,15 @@ export function createApiClient(baseUrl: string, deviceId: string) {
       call<{ pack: StickerPack }>(`/v1/packs/${encodeURIComponent(packId)}/duplicate`, { method: "POST", body: JSON.stringify({ name }) }),
     bulkPacks: (ids: string[], action: BulkPackAction) =>
       call<{ updated: number }>("/v1/packs/bulk", { method: "POST", body: JSON.stringify({ ids, action }) }),
+
+    /** Message center: recent generations of this device, newest first. */
+    listNotifications: () => call<NotificationsResponse>("/v1/notifications"),
+    /** Marks finished generations as seen. Without ids, all of them. */
+    markNotificationsRead: (ids?: string[]) =>
+      call<{ updated: number }>("/v1/notifications/read", { method: "POST", body: JSON.stringify(ids ? { ids } : {}) }),
+    /** Removes finished generations from the message center. Without ids, all finished ones. */
+    clearNotifications: (ids?: string[]) =>
+      call<{ updated: number }>("/v1/notifications/clear", { method: "POST", body: JSON.stringify(ids ? { ids } : {}) }),
 
     /** Polls a job until it finishes. Calls onUpdate on every poll. */
     async waitForJob(jobId: string, onUpdate?: (job: Job) => void, intervalMs = 2000): Promise<Job> {

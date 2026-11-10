@@ -41,6 +41,9 @@ alter table packs add column if not exists sticker_count integer;
 alter table packs add column if not exists favorite boolean not null default false;
 alter table packs add column if not exists deleted_at timestamptz;
 alter table packs add column if not exists updated_at timestamptz;
+alter table jobs add column if not exists seen_at timestamptz;
+alter table jobs add column if not exists cleared_at timestamptz;
+create index if not exists jobs_device_recent_idx on jobs (device_id, created_at desc);
 create index if not exists packs_owner_idx on packs (device_id, deleted_at, created_at desc);
 
 update packs set name = data->>'name', animated = (data->>'animated')::boolean,

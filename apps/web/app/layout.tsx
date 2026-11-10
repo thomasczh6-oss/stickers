@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Inter } from "next/font/google";
 import Link from "next/link";
 import { I18nProvider } from "@/components/i18n";
 import { LanguagePicker } from "@/components/language-picker";
+import { NotificationBell, NotificationsProvider } from "@/components/notifications";
 import { SITE_URL } from "@/lib/env";
 import { getI18n } from "@/lib/i18n";
 import "./globals.css";
@@ -30,6 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} className={`${inter.variable} ${display.variable}`}>
       <body className="min-h-dvh font-sans antialiased">
         <I18nProvider locale={locale}>
+        <NotificationsProvider>
         <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/85 backdrop-blur">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
             <Link href="/" className="flex items-center gap-2.5 font-display text-lg font-extrabold tracking-tight whitespace-nowrap">
@@ -48,6 +50,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </Link>
               {/* No room on phones; the footer has the picker too. */}
               <LanguagePicker compact className="hidden sm:inline-flex" />
+              <NotificationBell />
               <Link href="/create" className="ml-1 rounded-full bg-ink px-4 py-2 font-semibold whitespace-nowrap text-white transition hover:bg-ink/85">
                 {nav.makeStickers}
               </Link>
@@ -83,6 +86,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </div>
         </footer>
+        </NotificationsProvider>
         </I18nProvider>
       </body>
     </html>

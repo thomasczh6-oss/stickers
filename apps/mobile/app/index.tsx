@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { PackLibrary } from "@/components/PackLibrary";
 import { tap } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
+import { NotificationBell } from "@/lib/notifications";
 import { C, F, shadow } from "@/lib/theme";
 
 const HERO = [
@@ -28,6 +29,9 @@ export default function Home() {
           <View style={s.top}>
             <Image source={require("@/assets/images/icon.png")} style={s.logo} />
             <Text style={s.brand}>Stickers AI</Text>
+            <View style={s.bellSpot}>
+              <NotificationBell />
+            </View>
             <Pressable onPress={() => router.push("/settings")} hitSlop={12} style={s.settings} accessibilityLabel={t.settings}>
               <Text style={s.settingsText}>{t.settings}</Text>
             </Pressable>
@@ -54,7 +58,8 @@ export default function Home() {
 const s = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18 },
   logo: { width: 32, height: 32, borderRadius: 9 },
-  settings: { marginLeft: "auto", borderWidth: 1, borderColor: C.line, backgroundColor: C.card, borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6 },
+  bellSpot: { marginLeft: "auto" },
+  settings: { borderWidth: 1, borderColor: C.line, backgroundColor: C.card, borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6 },
   settingsText: { fontFamily: F.medium, fontSize: 13, color: C.ink },
   brand: { fontFamily: F.display, fontSize: 20, color: C.ink, letterSpacing: -0.3 },
   hero: { backgroundColor: C.ink, borderRadius: 32, padding: 24, paddingTop: 20, marginBottom: 28, ...shadow },

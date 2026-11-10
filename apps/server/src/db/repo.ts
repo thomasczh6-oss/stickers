@@ -1,4 +1,4 @@
-import type { BulkPackAction, CreatePackRequest, Job, JobStatus, PackFilter, PackSort, StickerPack, StyleId } from "@stickers/shared";
+import type { BulkPackAction, CreatePackRequest, GenerationNotice, Job, JobStatus, PackFilter, PackSort, StickerPack, StyleId } from "@stickers/shared";
 import type { Db } from "./db";
 
 /** The create request as stored: the photo lives in file storage, not in the database. */
@@ -32,6 +32,39 @@ export function toJob(row: JobRow): Job {
     updatedAt: iso(row.updated_at),
   };
 }
+
+interface NoticeRow extends JobRow {
+  seen_at: Date | string | null;
+  pack_data: StickerPack | null;
+  pack_name: string | null;
+}
+
+function toNotice(row: NoticeRow): GenerationNotice {
+  const req = row.request;
+  const pack = row.pack_data;
+  const finished = row.status === "succeeded" || row.status === "failed";
+  return {
+    id: row.id,
+    status: row.status,
+    progress: { done: row.progress_done, total: row.progress_total, step: row.step ?? undefined },
+    name: row.pack_name ?? pack?.name ?? req.packName ?? undefined,
+    prompt: req.prompt || undefined,
+    style: req.style,
+    kind: req.kind,
+    stickerCount: pack?.stickers.length ?? req.actions.length,
+    fromPhoto: Boolean(req.photoKey),
+    packId: row.pack_id ?? undefined,
+    previewUrl: pack?.stickers[0]?.url ?? undefined,
+    error: row.error ?? undefined,
+    read: !finished || row.seen_at !== null,
+    createdAt: iso(row.created_at),
+    updatedAt: iso(row.updated_at),
+  };
+}
+
+/** How far back the message center looks. */
+const NOTICE_DAYS = 30;
+const NOTICE_LIMIT = 30;
 
 export function createRepo(db: Db) {
   return {
@@ -90,6 +123,58 @@ export function createRepo(db: Db) {
          where status = 'running' and locked_at < now() - ($1 || ' minutes')::interval`,
         [String(staleMinutes)],
       );
+    },
+
+    /**
+     * The device's recent generations for the message center, newest first.
+     * Cleared ones and made packs that went to the bin are left out.
+     */
+    async listNotices(deviceId: string) {
+      const visible = `j.device_id = $1 and j.cleared_at is null and j.created_at > now() - interval '${NOTICE_DAYS} days'
+        and (j.status <> 'succeeded' or p.deleted_at is null)`;
+      const { rows } = await db.query<NoticeRow>(
+        `select j.*, p.data as pack_data, p.name as pack_name from jobs j left join packs p on p.id = j.pack_id
+         where ${visible} order by j.created_at desc limit ${NOTICE_LIMIT}`,
+        [deviceId],
+      );
+      const { rows: counts } = await db.query<{ unread: number | string; active: number | string }>(
+        `select count(*) filter (where j.status in ('succeeded', 'failed') and j.seen_at is null)::int as unread,
+           count(*) filter (where j.status in ('queued', 'running'))::int as active
+         from jobs j left join packs p on p.id = j.pack_id where ${visible}`,
+        [deviceId],
+      );
+      return { notifications: rows.map(toNotice), unread: Number(counts[0]?.unread ?? 0), active: Number(counts[0]?.active ?? 0) };
+    },
+
+    /** Marks finished generations as seen (all of them without ids). Ones still being made stay unread-able. */
+    async markNoticesRead(deviceId: string, ids?: string[]) {
+      const params: unknown[] = [deviceId];
+      let only = "";
+      if (ids) {
+        params.push(ids);
+        only = "and id = any($2)";
+      }
+      const { rows } = await db.query<{ id: string }>(
+        `update jobs set seen_at = now() where device_id = $1 and status in ('succeeded', 'failed') and seen_at is null ${only} returning id`,
+        params,
+      );
+      return rows.length;
+    },
+
+    /** Hides finished generations from the message center (all of them without ids). The packs stay. */
+    async clearNotices(deviceId: string, ids?: string[]) {
+      const params: unknown[] = [deviceId];
+      let only = "";
+      if (ids) {
+        params.push(ids);
+        only = "and id = any($2)";
+      }
+      const { rows } = await db.query<{ id: string }>(
+        `update jobs set cleared_at = now(), seen_at = coalesce(seen_at, now())
+         where device_id = $1 and status in ('succeeded', 'failed') and cleared_at is null ${only} returning id`,
+        params,
+      );
+      return rows.length;
     },
 
     async insertPack(deviceId: string, pack: StickerPack, recipe: { prompt?: string } = {}) {

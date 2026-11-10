@@ -6,6 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { I18nProvider, useI18n } from "@/lib/i18n";
+import { NotificationsProvider } from "@/lib/notifications";
 import { C, F } from "@/lib/theme";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -35,7 +36,7 @@ export default function RootLayout() {
 function Screens() {
   const { m } = useI18n();
   return (
-    <>
+    <NotificationsProvider>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -49,11 +50,12 @@ function Screens() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="create" options={{ title: m.app.titles.newPack, presentation: "modal" }} />
+        <Stack.Screen name="notifications" options={{ title: m.notifications.title }} />
         <Stack.Screen name="settings" options={{ title: m.app.titles.settings, presentation: "modal" }} />
         <Stack.Screen name="job/[id]" options={{ title: "", headerBackVisible: false, gestureEnabled: false }} />
         <Stack.Screen name="pack/[id]" options={{ title: "" }} />
         <Stack.Screen name="p/[id]" options={{ headerShown: false }} />
       </Stack>
-    </>
+    </NotificationsProvider>
   );
 }

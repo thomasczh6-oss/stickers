@@ -12,6 +12,7 @@ import {
   toPackIdentifier,
   type BulkPackAction,
   type ListPacksResponse,
+  type NotificationsResponse,
   type PackFilter,
   type PackSort,
   type StickerPack,
@@ -91,6 +92,31 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
     const row = await repo.getJob(c.req.param("id"));
     return row ? c.json({ job: toJob(row) }) : c.json({ error: "job not found" }, 404);
   });
+
+  /** Message center: the device's recent generations, with unread and in-progress counts. */
+  app.get("/v1/notifications", async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    const body: NotificationsResponse = await repo.listNotices(deviceId);
+    return c.json(body);
+  });
+
+  for (const [route, run] of [
+    ["read", repo.markNoticesRead],
+    ["clear", repo.clearNotices],
+  ] as const) {
+    app.post(`/v1/notifications/${route}`, async (c) => {
+      const deviceId = c.req.header("x-device-id") ?? "";
+      if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+      const body = (await c.req.json().catch(() => ({}))) as { ids?: unknown };
+      let ids: string[] | undefined;
+      if (body?.ids !== undefined) {
+        if (!Array.isArray(body.ids) || !body.ids.every((x) => typeof x === "string")) return c.json({ error: "ids must be a list of job ids" }, 400);
+        ids = (body.ids as string[]).slice(0, 200);
+      }
+      return c.json({ updated: await run(deviceId, ids) });
+    });
+  }
 
   app.get("/v1/packs", async (c) => {
     const deviceId = c.req.header("x-device-id") ?? "";
