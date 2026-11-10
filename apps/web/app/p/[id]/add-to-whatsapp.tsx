@@ -31,26 +31,28 @@ export function AddToWhatsApp({ packId }: { packId: string }) {
   };
 
   return (
-    <div className="sticky top-6 rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-violet-100">
-      <h2 className="text-lg font-black">Add to WhatsApp</h2>
+    <div className="rounded-[28px] border border-line bg-card p-6 shadow-[0_24px_60px_-36px_rgba(22,18,29,0.4)]">
+      <h2 className="font-display text-2xl font-bold tracking-tight">Add to WhatsApp</h2>
       {platform === "desktop" ? (
         <>
-          <p className="mt-2 text-sm text-violet-950/70">Scan with your phone camera to open this pack in the Stickers AI app, then tap Add.</p>
-          <div className="mt-5 grid place-items-center rounded-2xl bg-violet-50 p-5">
-            <QRCodeSVG value={pageUrl} size={200} bgColor="transparent" fgColor="#1f1235" level="M" />
+          <p className="mt-2 text-sm leading-relaxed text-muted">Scan with your phone’s camera. The pack opens in the free Stickers AI app, ready to add.</p>
+          <div className="mt-5 grid place-items-center rounded-[22px] bg-paper p-6">
+            <div className="rounded-2xl bg-white p-3 shadow-sm">
+              <QRCodeSVG value={pageUrl} size={184} bgColor="#ffffff" fgColor="#16121d" level="M" />
+            </div>
           </div>
         </>
       ) : (
         <>
-          <p className="mt-2 text-sm text-violet-950/70">WhatsApp adds sticker packs through our free app. It opens right on this pack.</p>
-          <button onClick={open} className="mt-5 w-full rounded-full bg-gradient-to-r from-brand to-brand-2 px-6 py-3.5 font-bold text-white">
+          <p className="mt-2 text-sm leading-relaxed text-muted">WhatsApp adds sticker packs through our free app. It opens right on this pack.</p>
+          <button onClick={open} className="mt-5 w-full rounded-full bg-ink px-6 py-4 font-semibold text-white">
             Open in the app
           </button>
           {tried && (
-            <p className="mt-4 text-sm text-violet-950/70">
+            <p className="mt-4 text-sm text-muted">
               Nothing happened?{" "}
               {storeUrl ? (
-                <a href={storeUrl} className="font-semibold text-brand underline">
+                <a href={storeUrl} className="font-semibold text-ink underline underline-offset-4">
                   Get the app
                 </a>
               ) : (
@@ -60,10 +62,13 @@ export function AddToWhatsApp({ packId }: { packId: string }) {
           )}
         </>
       )}
-      <ol className="mt-6 grid gap-2 text-xs text-violet-950/60">
-        <li>1. Open the pack in the Stickers AI app.</li>
-        <li>2. Tap “Add to WhatsApp” and confirm.</li>
-        <li>3. Find it in WhatsApp under the sticker tab.</li>
+      <ol className="mt-6 grid gap-3 text-sm">
+        {["Open the pack in the Stickers AI app", "Tap Add to WhatsApp and confirm", "Find it in your WhatsApp sticker tray"].map((t, i) => (
+          <li key={t} className="flex items-center gap-3">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-sun text-xs font-bold">{i + 1}</span>
+            {t}
+          </li>
+        ))}
       </ol>
     </div>
   );

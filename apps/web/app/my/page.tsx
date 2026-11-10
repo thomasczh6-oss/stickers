@@ -17,29 +17,54 @@ export default function MyPacks() {
   }, []);
 
   return (
-    <div className="py-8">
-      <h1 className="text-3xl font-black tracking-tight">My packs</h1>
-      <p className="mt-1 text-sm text-violet-950/60">Packs made in this browser.</p>
-      {error && <p className="mt-6 text-rose-700">{error}</p>}
-      {packs?.length === 0 && (
-        <p className="mt-10">
-          Nothing here yet.{" "}
-          <Link href="/#create" className="font-semibold text-brand underline">
-            Make your first pack
-          </Link>
-        </p>
+    <div className="pt-10 pb-6 md:pt-14">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-4xl font-extrabold tracking-[-0.02em] md:text-5xl">My packs</h1>
+          <p className="mt-2 text-muted">Packs you made in this browser.</p>
+        </div>
+        <Link href="/create" className="rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink/85">
+          New pack
+        </Link>
+      </div>
+      {error && <p className="mt-8 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">Couldn’t load your packs: {error}</p>}
+      {!packs && !error && (
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-60 animate-pulse rounded-[28px] bg-line/50" />
+          ))}
+        </div>
       )}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+      {packs?.length === 0 && (
+        <div className="mt-10 grid justify-items-center rounded-[32px] border border-dashed border-line bg-card px-6 py-16 text-center">
+          <img src="/styles/cartoon.webp" alt="" width={120} height={120} className="size-28" />
+          <h2 className="mt-4 font-display text-2xl font-bold">No packs yet</h2>
+          <p className="mt-2 max-w-sm text-muted">Your first pack is about a minute away. Start with a selfie, a pet or any idea.</p>
+          <Link href="/create" className="mt-6 rounded-full bg-ink px-6 py-3.5 font-semibold text-white">
+            Make my first pack
+          </Link>
+        </div>
+      )}
+      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {packs?.map((p) => (
-          <Link key={p.id} href={`/p/${p.id}`} className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-violet-100 transition hover:ring-brand">
-            <div className="grid grid-cols-3 gap-1">
-              {p.stickers.slice(0, 3).map((s) => (
+          <Link
+            key={p.id}
+            href={`/p/${p.id}`}
+            className="group rounded-[28px] border border-line bg-card p-4 transition hover:-translate-y-1 hover:shadow-[0_16px_40px_-24px_rgba(22,18,29,0.4)]"
+          >
+            <div className="grid grid-cols-3 gap-1 rounded-[20px] bg-paper p-2">
+              {p.stickers.slice(0, 6).map((s) => (
                 <img key={s.id} src={s.url} alt="" width={120} height={120} className="aspect-square w-full" loading="lazy" />
               ))}
             </div>
-            <div className="mt-3 font-bold">{p.name}</div>
-            <div className="text-xs text-violet-950/60">
-              {p.stickers.length} stickers · {new Date(p.createdAt).toLocaleDateString()}
+            <div className="mt-4 flex items-center justify-between gap-3 px-1">
+              <div className="min-w-0">
+                <div className="truncate font-semibold">{p.name}</div>
+                <div className="text-sm text-muted">
+                  {p.stickers.length} stickers · {new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </div>
+              </div>
+              <span className="text-muted transition group-hover:translate-x-0.5 group-hover:text-ink">→</span>
             </div>
           </Link>
         ))}

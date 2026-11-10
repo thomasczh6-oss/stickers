@@ -7,6 +7,8 @@ dist/
 .expo/
 apps/mobile/ios/
 apps/mobile/android/
+apps/mobile/modules/*/android/build/
+apps/mobile/modules/*/android/.cxx/
 *.log
 .DS_Store
 .turbo/

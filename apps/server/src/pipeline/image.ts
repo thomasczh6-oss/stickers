@@ -1,6 +1,7 @@
+import { fileURLToPath } from "node:url";
+import opentype from "opentype.js";
 import sharp from "sharp";
 import { WA } from "@stickers/shared";
-import { escapeXml } from "../providers/mock";
 
 /** Raw RGBA pixels. */
 export interface Rgba {
@@ -26,9 +27,13 @@ const HOLE_HIGH = 70;
  * The background colour is the median of the image border. Pixels connected to the border
  * are keyed generously; enclosed pixels only when they nearly match the background.
  * Semi-transparent edge pixels are un-mixed from the background to avoid a green fringe.
+ *
+ * Some models (gpt-image-2.6) ignore the green screen and return a cut-out with real
+ * transparency. Keying that by colour would erase the dark outlines, so it is only tidied.
  */
 export async function removeBackground(input: Buffer | Rgba): Promise<Rgba> {
   const img = Buffer.isBuffer(input) ? await toRgba(input) : { ...input, data: Buffer.from(input.data) };
+  if (hasTransparentBorder(img)) return tidyAlpha(img);
   const { data, width: w, height: h } = img;
   const bg = borderMedian(img);
 
@@ -84,12 +89,130 @@ export async function removeBackground(input: Buffer | Rgba): Promise<Rgba> {
     }
     data[i + 3] = Math.round(a * data[i + 3]!);
   }
+  despillEdges(img, bg);
   return img;
+}
+
+/** How far (px) from the keyed area green spill is removed. Fluffy fur and hair need a few pixels. */
+const SPILL_RADIUS = 4;
+
+/**
+ * Light bounces off a green screen onto the character's edges (fur, hair), leaving a green
+ * fringe that survives keying. For pixels near the cut-out edge, cap the background's
+ * dominant channel at the stronger of the other two. Only runs when the background is
+ * clearly one primary colour, as the prompts ask.
+ */
+export function despillEdges({ data, width: w, height: h }: Rgba, bg: [number, number, number]): void {
+  const order = [0, 1, 2].sort((a, b) => bg[b]! - bg[a]!);
+  const c = order[0]!;
+  if (bg[c]! - bg[order[1]!]! < 80) return;
+  const [o1, o2] = [0, 1, 2].filter((k) => k !== c) as [number, number];
+
+  const near = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3]! >= 128) continue;
+      // Only transparent pixels touching the character seed the band.
+      const touches =
+        (x > 0 && data[(y * w + x - 1) * 4 + 3]! >= 128) ||
+        (x < w - 1 && data[(y * w + x + 1) * 4 + 3]! >= 128) ||
+        (y > 0 && data[((y - 1) * w + x) * 4 + 3]! >= 128) ||
+        (y < h - 1 && data[((y + 1) * w + x) * 4 + 3]! >= 128);
+      if (!touches) continue;
+      for (let yy = Math.max(0, y - SPILL_RADIUS); yy <= Math.min(h - 1, y + SPILL_RADIUS); yy++) {
+        for (let xx = Math.max(0, x - SPILL_RADIUS); xx <= Math.min(w - 1, x + SPILL_RADIUS); xx++) near[yy * w + xx] = 1;
+      }
+    }
+  }
+  for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+    if (!near[p] || data[i + 3] === 0) continue;
+    const cap = Math.max(data[i + o1]!, data[i + o2]!);
+    if (data[i + c]! > cap) data[i + c] = cap;
+  }
 }
 
 export async function toRgba(input: Buffer): Promise<Rgba> {
   const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   return { data, width: info.width, height: info.height };
+}
+
+/** True when most of the image border is already transparent, i.e. the model returned a cut-out. */
+function hasTransparentBorder({ data, width: w, height: h }: Rgba): boolean {
+  let clear = 0;
+  let total = 0;
+  const take = (x: number, y: number) => {
+    total++;
+    if (data[(y * w + x) * 4 + 3]! < 16) clear++;
+  };
+  for (let x = 0; x < w; x += 2) {
+    take(x, 0);
+    take(x, h - 1);
+  }
+  for (let y = 0; y < h; y += 2) {
+    take(0, y);
+    take(w - 1, y);
+  }
+  // A green-screen image has no transparent pixels at all, so half the border is a safe bar
+  // even when a waving arm crosses the edge of a cell.
+  return clear / total > 0.5;
+}
+
+/** Below this alpha a pixel of a cut-out is dropped; above ALPHA_SOLID it is made fully opaque. */
+const ALPHA_CLEAR = 8;
+/** gpt-image-2.6 draws its characters at alpha 252–254, which would let chat backgrounds show through. */
+const ALPHA_SOLID = 240;
+
+/** Faint cut-out pixels (below this alpha) that still carry the hidden screen colour are haze. */
+const HAZE_ALPHA = 200;
+/** How far the screen's main channel must lead the other two for a pixel to count as screen. */
+const HAZE_LEAD = 40;
+
+/**
+ * Snaps a model-made cut-out to clean alpha: no faint haze around it, no see-through body.
+ * The model mattes its own green screen, softly: around hair and confetti it leaves faint
+ * pixels that are still green underneath. Those are dropped, and green spill along the
+ * cut edge is removed like for a keyed image.
+ */
+function tidyAlpha(img: Rgba): Rgba {
+  const { data } = img;
+  const bg = hiddenBackground(img);
+  const order = bg ? [0, 1, 2].sort((a, b) => bg[b]! - bg[a]!) : undefined;
+  // Only when the hidden screen is clearly one primary colour, as the prompts ask.
+  const screen = bg && order && bg[order[0]!]! - bg[order[1]!]! >= 80 ? order[0]! : undefined;
+  for (let i = 3; i < data.length; i += 4) {
+    let a = data[i]!;
+    if (screen !== undefined && a < HAZE_ALPHA) {
+      const p = i - 3;
+      const others = Math.max(...[0, 1, 2].filter((k) => k !== screen).map((k) => data[p + k]!));
+      if (data[p + screen]! - others > HAZE_LEAD) a = 0;
+    }
+    if (a <= ALPHA_CLEAR) {
+      data[i - 3] = data[i - 2] = data[i - 1] = data[i] = 0;
+    } else if (a >= ALPHA_SOLID) {
+      data[i] = 255;
+    } else {
+      data[i] = Math.round(((a - ALPHA_CLEAR) / (ALPHA_SOLID - ALPHA_CLEAR)) * 255);
+    }
+  }
+  if (bg) despillEdges(img, bg);
+  return img;
+}
+
+/** Median colour hidden under the fully transparent pixels of a cut-out (the screen the model matted). */
+function hiddenBackground({ data }: Rgba): [number, number, number] | undefined {
+  const rs: number[] = [];
+  const gs: number[] = [];
+  const bs: number[] = [];
+  // Every 7th pixel is plenty for a median and keeps this cheap on 512px frames.
+  for (let i = 0; i < data.length; i += 28) {
+    if (data[i + 3]! >= 4) continue;
+    rs.push(data[i]!);
+    gs.push(data[i + 1]!);
+    bs.push(data[i + 2]!);
+  }
+  if (rs.length < 100) return undefined;
+  const med = (a: number[]) => a.sort((x, y) => x - y)[a.length >> 1]!;
+  return [med(rs), med(gs), med(bs)];
 }
 
 function borderMedian({ data, width: w, height: h }: Rgba): [number, number, number] {
@@ -164,6 +287,63 @@ export interface ComposeOptions {
   outline?: boolean;
   /** Short text printed along the bottom (for example "LOL"). */
   caption?: string;
+  /**
+   * How frames are lined up before cropping. The model draws each sprite-sheet cell at a
+   * slightly different spot, which reads as jitter. "feet" pins the lower body in place
+   * (default); "horizontal" only fixes sideways drift, for motions that leave the ground.
+   */
+  align?: "feet" | "horizontal" | "none";
+}
+
+/**
+ * Anchor point of a keyed frame: the horizontal centre of the bottom band of the
+ * character (feet/base, which barely moves in most motions) and its lowest row.
+ */
+export function frameAnchor(f: Rgba, threshold = 24): { x: number; y: number } | undefined {
+  const b = alphaBounds(f, threshold);
+  if (!b) return undefined;
+  const bandTop = b.top + Math.floor(b.height * 0.8);
+  let sum = 0;
+  let n = 0;
+  for (let y = bandTop; y < b.top + b.height; y++) {
+    for (let x = b.left; x < b.left + b.width; x++) {
+      if (f.data[(y * f.width + x) * 4 + 3]! > threshold) {
+        sum += x;
+        n++;
+      }
+    }
+  }
+  return { x: n ? sum / n : b.left + b.width / 2, y: b.top + b.height };
+}
+
+/** Moves a frame's pixels by (dx, dy) on a canvas of the same size; uncovered pixels are transparent. */
+function shiftFrame(f: Rgba, dx: number, dy: number): Rgba {
+  if (dx === 0 && dy === 0) return f;
+  const { width: w, height: h } = f;
+  const data = Buffer.alloc(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    const sy = y - dy;
+    if (sy < 0 || sy >= h) continue;
+    const x0 = Math.max(0, dx);
+    const x1 = Math.min(w, w + dx);
+    if (x1 <= x0) continue;
+    f.data.copy(data, (y * w + x0) * 4, (sy * w + x0 - dx) * 4, (sy * w + x1 - dx) * 4);
+  }
+  return { data, width: w, height: h };
+}
+
+/** Shifts frames so their anchors line up with the first frame's. */
+export function alignFrames(frames: Rgba[], mode: "feet" | "horizontal"): Rgba[] {
+  const anchors = frames.map((f) => frameAnchor(f));
+  const ref = anchors.find(Boolean);
+  if (!ref) return frames;
+  return frames.map((f, i) => {
+    const a = anchors[i];
+    if (!a) return f;
+    const dx = Math.round(ref.x - a.x);
+    const dy = mode === "feet" ? Math.round(ref.y - a.y) : 0;
+    return shiftFrame(f, dx, dy);
+  });
 }
 
 const S = WA.STICKER_SIZE;
@@ -172,8 +352,22 @@ const S = WA.STICKER_SIZE;
  * Places keyed frames on 512x512 transparent canvases. All frames share one crop box and
  * one scale so an animation does not jitter. Returns PNG buffers.
  */
+function cropRgba(f: Rgba, w: number, h: number): Rgba {
+  if (f.width === w && f.height === h) return f;
+  const data = Buffer.alloc(w * h * 4);
+  for (let y = 0; y < h; y++) f.data.copy(data, y * w * 4, y * f.width * 4, (y * f.width + w) * 4);
+  return { data, width: w, height: h };
+}
+
 export async function composeFrames(frames: Rgba[], opts: ComposeOptions = {}): Promise<Buffer[]> {
   if (frames.length === 0) throw new Error("no frames to compose");
+  const align = opts.align ?? "feet";
+  if (frames.length > 1 && align !== "none") {
+    // Frames from one sheet cell may differ in size by a pixel; crop to a common size first.
+    const cw = Math.min(...frames.map((f) => f.width));
+    const ch = Math.min(...frames.map((f) => f.height));
+    frames = alignFrames(frames.map((f) => cropRgba(f, cw, ch)), align);
+  }
   const w = Math.min(...frames.map((f) => f.width));
   const h = Math.min(...frames.map((f) => f.height));
   let box: { left: number; top: number; width: number; height: number } | undefined;
@@ -288,11 +482,31 @@ export async function addOutline(png: Buffer, radius = 8): Promise<Buffer> {
   return sharp(out, { raw: { width: w, height: h, channels: 4 } }).png().toBuffer();
 }
 
+let captionFont: opentype.Font | undefined;
+function loadCaptionFont(): opentype.Font {
+  // Lilita One (SIL Open Font License): chunky, rounded and readable at sticker size.
+  captionFont ??= opentype.loadSync(fileURLToPath(new URL("../../assets/fonts/LilitaOne-Regular.ttf", import.meta.url)));
+  return captionFont;
+}
+
+/**
+ * Prints a caption along the bottom: white letters with a thick dark outline, the classic
+ * sticker look. Text is turned into vector paths with the bundled font, so it renders the
+ * same on every server whatever fonts are installed.
+ */
 async function addCaption(png: Buffer, text: string): Promise<Buffer> {
-  const size = text.length > 8 ? 52 : 68;
+  const font = loadCaptionFont();
+  const maxWidth = S - 60;
+  let size = 84;
+  const width = (sz: number) => font.getAdvanceWidth(text, sz);
+  while (size > 40 && width(size) > maxWidth) size -= 2;
+  const x = (S - width(size)) / 2;
+  const baseline = S - 30;
+  const d = font.getPath(text, x, baseline, size).toPathData(2);
+  const stroke = Math.round(size * 0.2);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}">
-    <text x="${S / 2}" y="${S - 34}" text-anchor="middle" font-family="DejaVu Sans, Liberation Sans, Arial, sans-serif"
-      font-weight="800" font-size="${size}" fill="#ffffff" stroke="#111111" stroke-width="10" stroke-linejoin="round"
-      paint-order="stroke">${escapeXml(text)}</text></svg>`;
+    <path d="${d}" transform="translate(0 5)" fill="#1a1325" fill-opacity="0.35" stroke="#1a1325" stroke-opacity="0.35" stroke-width="${stroke}" stroke-linejoin="round"/>
+    <path d="${d}" fill="#1a1325" stroke="#1a1325" stroke-width="${stroke}" stroke-linejoin="round"/>
+    <path d="${d}" fill="#ffffff"/></svg>`;
   return sharp(png).composite([{ input: Buffer.from(svg) }]).png().toBuffer();
 }

@@ -1,10 +1,37 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #7c3aed;
-  --color-brand-2: #ec4899;
-  --color-accent: #facc15;
-  --font-sans: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Warm, quiet base with one confident accent. */
+  --color-paper: #fffaf3;
+  --color-ink: #16121d;
+  --color-muted: #6b6475;
+  --color-line: #ebe4d8;
+  --color-card: #ffffff;
+  --color-brand: #6d3ff2;
+  --color-brand-soft: #efe9ff;
+  --color-sun: #ffd23f;
+  --color-pop: #ff5c8a;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-bricolage), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-slow: float 8s ease-in-out infinite;
+  --animate-marquee: marquee 50s linear infinite;
+
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(var(--r, 0deg));
+    }
+    50% {
+      transform: translateY(-10px) rotate(var(--r, 0deg));
+    }
+  }
 }
 
 :root {
@@ -12,15 +39,40 @@
 }
 
 body {
-  background: #faf7ff;
-  color: #1f1235;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* Highlighter stroke behind a word in a headline. */
+.marker {
+  background-image: linear-gradient(transparent 62%, var(--color-sun) 62%, var(--color-sun) 92%, transparent 92%);
+  padding: 0 0.08em;
 }
 
 .checker {
   background-color: #fff;
   background-image:
-    linear-gradient(45deg, #f1ecf9 25%, transparent 25%), linear-gradient(-45deg, #f1ecf9 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #f1ecf9 75%), linear-gradient(-45deg, transparent 75%, #f1ecf9 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    linear-gradient(45deg, #f5f1ea 25%, transparent 25%), linear-gradient(-45deg, #f5f1ea 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f5f1ea 75%), linear-gradient(-45deg, transparent 75%, #f5f1ea 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details[open] .chev {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

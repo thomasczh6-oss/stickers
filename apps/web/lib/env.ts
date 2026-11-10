@@ -6,3 +6,5 @@ export const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL ?? "";
 export const APP_SCHEME = "stickers";
 /** Address the Next.js server uses to reach the API. Can be an internal URL. */
 export const API_INTERNAL_BASE_URL = process.env.API_INTERNAL_BASE_URL ?? API_BASE_URL;
+/** Where privacy and support requests go. Set before launch. */
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@stickers.example.com";

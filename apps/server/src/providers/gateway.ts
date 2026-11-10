@@ -4,7 +4,7 @@ import { type ImageProvider, type ImageRequest, ProviderError } from "./types";
 /**
  * Company AI gateway, OpenAI Images protocol (POST /v1/images/generations and /v1/images/edits).
  * Request shapes match the team's working integration in mvbuddy/server.js.
- * Works for gpt-image-2.5-flare today; switch IMAGE_MODEL when image 2.6 lands.
+ * Works with gpt-image-2.6-flare (default) and gpt-image-2.5-flare; pick one with IMAGE_MODEL.
  */
 export class GatewayImageProvider implements ImageProvider {
   readonly name: string;
@@ -15,7 +15,13 @@ export class GatewayImageProvider implements ImageProvider {
 
   async image(req: ImageRequest): Promise<Buffer> {
     const res = req.images.length > 0 ? await this.edit(req) : await this.generate(req);
-    const text = await res.text();
+    let text: string;
+    try {
+      text = await res.text();
+    } catch (e) {
+      // The connection can drop while the (large) image body is still downloading.
+      throw new ProviderError(`gateway response was cut off: ${(e as Error).message}`, res.status, true);
+    }
     let data: { data?: { b64_json?: string; url?: string }[]; error?: { message?: string } | string; message?: string } = {};
     try {
       data = JSON.parse(text);
@@ -25,7 +31,10 @@ export class GatewayImageProvider implements ImageProvider {
     if (!res.ok) {
       const msg =
         (typeof data.error === "object" ? data.error?.message : data.error) ?? data.message ?? text.slice(0, 300) ?? `HTTP ${res.status}`;
-      throw new ProviderError(`gateway ${res.status}: ${msg}`, res.status, res.status === 429 || res.status >= 500);
+      // The safety check misfires now and then on ordinary photo-real people (a woman waving).
+      // Image output varies per call, so another try is cheaper than losing the sticker.
+      const safety = res.status === 400 && /safety system|moderation|content policy/i.test(String(msg));
+      throw new ProviderError(`gateway ${res.status}: ${msg}`, res.status, res.status === 429 || res.status >= 500 || safety);
     }
     const item = data.data?.[0];
     if (item?.b64_json) return Buffer.from(item.b64_json, "base64");

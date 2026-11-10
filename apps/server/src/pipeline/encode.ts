@@ -12,23 +12,33 @@ export function pingPong<T>(frames: T[]): T[] {
 
 /**
  * Encodes 512x512 PNG frames as an animated WebP within WhatsApp's 500KB / 10s limits.
- * Lowers quality first, then drops every other frame (keeping the first) if still too big.
+ * `delays` is one duration for every frame, or one per frame. Lowers quality first, then
+ * drops every other frame (keeping the first, and folding the dropped time into the kept
+ * frame so the pace stays the same) if still too big.
  */
-export async function encodeAnimated(frames: Buffer[], delayMs: number): Promise<Buffer> {
+export async function encodeAnimated(frames: Buffer[], delays: number | number[]): Promise<Buffer> {
   let seq = frames;
-  let delay = Math.max(WA.MIN_FRAME_MS, delayMs);
-  // Keep the whole loop under 10 seconds.
-  while (seq.length * delay > WA.MAX_ANIMATION_MS && seq.length > 2) seq = seq.filter((_, i) => i % 2 === 0);
+  let ds = (Array.isArray(delays) ? delays : frames.map(() => delays)).map((d) => Math.max(WA.MIN_FRAME_MS, d));
+  if (ds.length !== seq.length) throw new Error("one delay per frame is required");
+  const halve = () => {
+    const keep = seq.map((_, i) => i).filter((i) => i % 2 === 0);
+    ds = keep.map((i) => ds[i]! + (ds[i + 1] ?? 0));
+    seq = keep.map((i) => seq[i]!);
+  };
+  const total = () => ds.reduce((a, b) => a + b, 0);
+  if (total() > WA.MAX_ANIMATION_MS) {
+    const k = WA.MAX_ANIMATION_MS / total();
+    ds = ds.map((d) => Math.max(WA.MIN_FRAME_MS, Math.floor(d * k)));
+  }
   for (;;) {
     for (const quality of ANIMATED_QUALITIES) {
       const out = await sharp(seq, { join: { animated: true } })
-        .webp({ quality, alphaQuality: Math.max(50, quality), effort: 5, smartSubsample: true, loop: 0, delay: seq.map(() => delay) })
+        .webp({ quality, alphaQuality: Math.max(50, quality), effort: 5, smartSubsample: true, loop: 0, delay: ds })
         .toBuffer();
       if (out.length <= WA.ANIMATED_MAX_BYTES) return out;
     }
     if (seq.length <= 2) break;
-    seq = seq.filter((_, i) => i % 2 === 0);
-    delay = Math.min(delay * 2, Math.floor(WA.MAX_ANIMATION_MS / seq.length));
+    halve();
   }
   throw new Error("could not fit the animation under 500KB");
 }
@@ -64,7 +74,7 @@ export async function inspectSticker(file: Buffer, animated: boolean): Promise<s
   return validateStickerFile({ width: meta.width ?? 0, height, bytes: file.length, frameDelaysMs: delays }, animated);
 }
 
-/** Decodes an animated GIF/WebP (for models that return animation directly, like image 2.6) into PNG frames + delays. */
+/** Decodes an animated GIF/WebP (for models that return animation directly) into PNG frames + delays. */
 export async function decodeAnimation(file: Buffer): Promise<{ frames: Buffer[]; delaysMs: number[] }> {
   const meta = await sharp(file, { animated: true }).metadata();
   const pages = meta.pages ?? 1;

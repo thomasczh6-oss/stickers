@@ -5,17 +5,23 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import samples from "@/public/samples/index.json";
 
-const STEP_TEXT: Record<string, string> = {
-  character: "Designing your character",
-  packaging: "Packing it up for WhatsApp",
-};
+const TIPS = [
+  "Tip: long-press a sticker in WhatsApp to add it to your favorites.",
+  "Tip: share your pack link and friends can add the same stickers.",
+  "Tip: try the same photo in a different style for a whole new pack.",
+  "Tip: captions are kept short so they read well at sticker size.",
+];
+
+const PREVIEW = samples.flatMap((p) => p.stickers.map((f) => `/samples/${p.slug}/${f}`));
 
 export default function JobPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [job, setJob] = useState<Job>();
   const [error, setError] = useState<string>();
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let stop = false;
@@ -25,6 +31,7 @@ export default function JobPage() {
         const { job } = await api().getJob(id);
         if (stop) return;
         setJob(job);
+        setError(undefined);
         if (job.status === "succeeded" && job.packId) return router.replace(`/p/${job.packId}`);
         if (job.status === "failed") return;
       } catch (e) {
@@ -33,46 +40,82 @@ export default function JobPage() {
       timer = setTimeout(poll, 2000);
     };
     void poll();
+    const t = setInterval(() => setTick((n) => n + 1), 3500);
     return () => {
       stop = true;
       clearTimeout(timer);
+      clearInterval(t);
     };
   }, [id, router]);
 
-  const pct = job ? Math.round((job.progress.done / Math.max(1, job.progress.total)) * 100) : 0;
-  const step = job?.progress.step;
-  const label =
-    job?.status === "queued"
-      ? "Waiting in line…"
-      : step && STEP_TEXT[step]
-        ? STEP_TEXT[step]
-        : job?.status === "running"
-          ? `Drawing sticker ${Math.max(1, job.progress.done)} of ${job.progress.total - 2}`
-          : "Starting…";
+  if (job?.status === "failed") {
+    return (
+      <div className="mx-auto max-w-md py-24 text-center">
+        <div className="text-6xl">😵‍💫</div>
+        <h1 className="mt-5 font-display text-3xl font-extrabold">That one didn’t work</h1>
+        <p className="mt-3 text-muted">{job.error ?? "Something went wrong while drawing your stickers."}</p>
+        <p className="mt-2 text-sm text-muted">A different photo or a simpler description usually fixes it.</p>
+        <Link href="/create" className="mt-8 inline-block rounded-full bg-ink px-7 py-3.5 font-semibold text-white">
+          Try again
+        </Link>
+      </div>
+    );
+  }
+
+  const total = job?.progress.total ?? 8;
+  const done = job?.progress.done ?? 0;
+  const stickers = Math.max(0, total - 2);
+  const drawn = Math.min(stickers, Math.max(0, done - 1));
+  const pct = Math.round((done / Math.max(1, total)) * 100);
+  const stage = !job || job.status === "queued" ? 0 : done === 0 ? 1 : done < total - 1 ? 2 : 3;
+
+  const stages = [
+    { label: job?.status === "queued" ? "Waiting for a free artist…" : "Getting started", state: stage > 0 ? "done" : "now" },
+    { label: "Designing your character", state: stage > 1 ? "done" : stage === 1 ? "now" : "todo" },
+    { label: `Animating reactions${stage >= 2 ? ` · ${drawn} of ${stickers}` : ""}`, state: stage > 2 ? "done" : stage === 2 ? "now" : "todo" },
+    { label: "Packing it for WhatsApp", state: stage === 3 ? "now" : "todo" },
+  ] as const;
 
   return (
-    <div className="mx-auto max-w-md py-20 text-center">
-      {job?.status === "failed" ? (
-        <>
-          <div className="text-6xl">😵</div>
-          <h1 className="mt-4 text-2xl font-black">That one didn’t work</h1>
-          <p className="mt-2 text-violet-950/70">{job.error}</p>
-          <Link href="/#create" className="mt-8 inline-block rounded-full bg-brand px-6 py-3 font-bold text-white">
-            Try again
-          </Link>
-        </>
-      ) : (
-        <>
-          <div className="mx-auto size-24 animate-bounce text-7xl">🎨</div>
-          <h1 className="mt-6 text-2xl font-black">Making your stickers</h1>
-          <p className="mt-2 text-violet-950/70">{label}</p>
-          <div className="mt-8 h-3 overflow-hidden rounded-full bg-violet-100">
-            <div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-2 transition-all duration-700" style={{ width: `${Math.max(4, pct)}%` }} />
-          </div>
-          <p className="mt-6 text-xs text-violet-900/50">This usually takes about a minute. You can leave this page; your pack will be under My packs.</p>
-          {error && <p className="mt-4 text-sm text-rose-700">{error}</p>}
-        </>
-      )}
+    <div className="mx-auto grid max-w-4xl items-center gap-12 py-16 md:grid-cols-[1fr_1fr] md:py-24">
+      <div className="relative mx-auto aspect-square w-full max-w-[340px]">
+        <div className="absolute inset-0 rounded-[40px] bg-brand-soft" />
+        {PREVIEW.length > 0 && (
+          <img
+            key={tick}
+            src={PREVIEW[tick % PREVIEW.length]}
+            alt=""
+            width={300}
+            height={300}
+            className="relative mx-auto size-full p-10"
+          />
+        )}
+        <div className="absolute inset-x-0 bottom-5 mx-auto w-fit rounded-full bg-card px-4 py-2 text-sm font-semibold shadow">While you wait: packs by others</div>
+      </div>
+
+      <div>
+        <h1 className="font-display text-4xl font-extrabold tracking-[-0.02em]">Making your stickers</h1>
+        <p className="mt-3 text-muted">Usually about a minute. Feel free to leave; your pack will wait under My packs.</p>
+        <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-line">
+          <div className="h-full rounded-full bg-brand transition-all duration-700" style={{ width: `${Math.max(4, pct)}%` }} />
+        </div>
+        <ol className="mt-8 grid gap-4">
+          {stages.map((s) => (
+            <li key={s.label} className={`flex items-center gap-3 ${s.state === "todo" ? "text-muted/60" : ""}`}>
+              <span
+                className={`grid size-6 shrink-0 place-items-center rounded-full text-xs ${
+                  s.state === "done" ? "bg-brand text-white" : s.state === "now" ? "border-2 border-brand" : "border-2 border-line"
+                }`}
+              >
+                {s.state === "done" ? "✓" : s.state === "now" ? <span className="size-2 animate-pulse rounded-full bg-brand" /> : null}
+              </span>
+              <span className={s.state === "now" ? "font-semibold" : ""}>{s.label}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-10 rounded-2xl border border-line bg-card p-4 text-sm text-muted">{TIPS[Math.floor(tick / 2) % TIPS.length]}</p>
+        {error && <p className="mt-4 text-sm text-rose-700">Connection hiccup, retrying… ({error})</p>}
+      </div>
     </div>
   );
 }

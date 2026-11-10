@@ -4,10 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import sharp from "sharp";
-import { WA } from "@stickers/shared";
+import { ACTIONS, STYLES, WA } from "@stickers/shared";
 import { inspectSticker } from "../src/pipeline/encode";
 import { generatePack } from "../src/pipeline/generatePack";
-import { addOutline, removeBackground, toRgba } from "../src/pipeline/image";
+import { addOutline, alignFrames, frameAnchor, removeBackground, toRgba } from "../src/pipeline/image";
+import { characterPrompt, spriteSheetPrompt } from "../src/pipeline/prompts";
 import { MockImageProvider } from "../src/providers/mock";
 import { LocalStorage } from "../src/storage/storage";
 
@@ -25,6 +26,34 @@ test("background removal keys the border colour and enclosed holes, but keeps ot
   assert.equal(alphaAt(100, 50), 255, "character body stays opaque");
   assert.equal(alphaAt(80, 100), 0, "an enclosed hole of the background colour is removed");
   assert.equal(alphaAt(125, 100), 255, "a different green inside the character stays");
+});
+
+test("background removal leaves a model-made cut-out alone, keeping dark outlines", async () => {
+  // What gpt-image-2.6 returns: transparent background, a dark-outlined body at alpha ~253.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+    <circle cx="100" cy="100" r="70" fill="#f0a030" fill-opacity="0.99" stroke="#1a1010" stroke-width="8" stroke-opacity="0.99"/>
+  </svg>`;
+  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  const out = await removeBackground(png);
+  const px = (x: number, y: number) => Array.from(out.data.subarray((y * 200 + x) * 4, (y * 200 + x) * 4 + 4));
+  assert.equal(px(5, 5)[3], 0, "corner stays transparent");
+  assert.equal(px(100, 100)[3], 255, "nearly opaque body becomes fully opaque");
+  const outline = px(100, 30);
+  assert.equal(outline[3], 255, "dark outline is kept");
+  assert.ok(outline[0]! < 60, "outline keeps its dark colour");
+});
+
+test("realistic styles keep the real likeness instead of a cute cartoon", () => {
+  const photo = STYLES.find((s) => s.id === "photo")!;
+  const cartoon = STYLES.find((s) => s.id === "cartoon")!;
+  const fromPhoto = characterPrompt({ style: photo, fromPhoto: true });
+  assert.match(fromPhoto, /real face and likeness/);
+  assert.match(fromPhoto, /waist up/);
+  assert.doesNotMatch(fromPhoto, /cute sticker character/);
+  // A planner or user may still write "chibi"; the realistic style must override it.
+  assert.match(characterPrompt({ style: photo, description: "a chibi nurse", fromPhoto: false }), /do not turn the subject into a cartoon, anime or chibi/);
+  assert.match(spriteSheetPrompt({ style: photo, action: ACTIONS[0] }), /short video clip/);
+  assert.match(characterPrompt({ style: cartoon, fromPhoto: true }), /cute sticker character/);
 });
 
 test("outline adds a white border around the character", async () => {
@@ -85,4 +114,17 @@ test("static pack: every sticker is a valid single-frame WebP under 100KB", asyn
     assert.deepEqual(await inspectSticker(file, false), [], s.fileName);
     assert.ok(file.length <= WA.STATIC_MAX_BYTES);
   }
+});
+
+test("alignFrames pins drifting frames to the first frame's feet", () => {
+  const box = (ox: number, oy: number) => {
+    const w = 100, h = 100, data = Buffer.alloc(w * h * 4);
+    for (let y = oy; y < oy + 30; y++) for (let x = ox; x < ox + 20; x++) data[(y * w + x) * 4 + 3] = 255;
+    return { data, width: w, height: h };
+  };
+  const [a, b] = alignFrames([box(10, 10), box(40, 50)], "feet");
+  assert.deepEqual(frameAnchor(b!), frameAnchor(a!));
+  const [, c] = alignFrames([box(10, 10), box(40, 50)], "horizontal");
+  assert.equal(frameAnchor(c!)!.x, frameAnchor(box(10, 10))!.x);
+  assert.equal(frameAnchor(c!)!.y, 80);
 });
