@@ -32,6 +32,19 @@ create table if not exists packs (
   created_at timestamptz not null default now()
 );
 create index if not exists packs_device_idx on packs (device_id, created_at desc);
+
+create table if not exists feedback (
+  id text primary key,
+  device_id text not null,
+  kind text not null,
+  message text not null,
+  email text,
+  platform text,
+  app_version text,
+  locale text,
+  created_at timestamptz not null default now()
+);
+create index if not exists feedback_device_idx on feedback (device_id, created_at desc);
 `;
 
 /**

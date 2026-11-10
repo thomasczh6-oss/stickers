@@ -113,3 +113,54 @@ test("gateway provider sends the OpenAI Images request shapes and reads b64_json
   assert.match(edit.body, /name="image"; filename="ref0\.png"/);
   server.close();
 });
+
+test("free packs per day, feedback, and deleting all of a device's data", async () => {
+  const { db, repo, storage, call, dir, app } = await setup();
+  const make = () => call("/v1/packs", { method: "POST", body: JSON.stringify({ prompt: "cat", style: "3d", kind: "static", actions: ["wave", "cry", "cool"] }) });
+
+  const before = (await (await call("/v1/me")).json()) as { usage: { limit: number; remaining: number } };
+  assert.equal(before.usage.limit, 2);
+  assert.equal(before.usage.remaining, 2);
+
+  // Two packs fit in the free allowance; the third is refused with code "quota".
+  for (let i = 0; i < 2; i++) {
+    assert.equal((await make()).status, 202);
+    const row = await repo.claimNextJob();
+    await processJob({ repo, storage, provider: new MockImageProvider(), publisherName: "Test", stickerConcurrency: 2 }, row!);
+  }
+  const over = await make();
+  assert.equal(over.status, 402);
+  assert.equal(((await over.json()) as { code: string }).code, "quota");
+
+  // Feedback is checked and stored.
+  assert.equal((await call("/v1/feedback", { method: "POST", body: JSON.stringify({ kind: "nope", message: "hi" }) })).status, 400);
+  const fb = await call("/v1/feedback", { method: "POST", body: JSON.stringify({ kind: "bug", message: "The pack didn't load", email: "me@example.com", platform: "web" }) });
+  assert.equal(fb.status, 201);
+
+  // Another device's pack must survive.
+  const other = await app.request("/v1/packs", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-device-id": "someone-else-1" },
+    body: JSON.stringify({ prompt: "dog", style: "3d", kind: "static", actions: ["wave", "cry", "cool"] }),
+  });
+  assert.equal(other.status, 202);
+
+  const { packs } = (await (await call("/v1/packs")).json()) as { packs: { id: string }[] };
+  assert.equal(packs.length, 2);
+  await fs.access(path.join(dir, `packs/${packs[0]!.id}`));
+
+  const del = (await (await call("/v1/me", { method: "DELETE" })).json()) as { deleted: { packs: number; jobs: number } };
+  assert.deepEqual(del.deleted, { packs: 2, jobs: 2 });
+  assert.equal(((await (await call("/v1/packs")).json()) as { packs: unknown[] }).packs.length, 0);
+  assert.equal((await call(`/v1/packs/${packs[0]!.id}`)).status, 404);
+  await assert.rejects(fs.access(path.join(dir, `packs/${packs[0]!.id}`)));
+  assert.equal(((await db.query<{ n: number }>(`select count(*)::int as n from feedback`)).rows[0]!.n), 0);
+  assert.equal(((await db.query<{ n: number }>(`select count(*)::int as n from jobs`)).rows[0]!.n), 1, "other device's job kept");
+
+  // A job that finishes after its data was deleted leaves nothing behind.
+  const row = await repo.claimNextJob();
+  await db.query(`delete from jobs where id = $1`, [row!.id]);
+  await processJob({ repo, storage, provider: new MockImageProvider(), publisherName: "Test", stickerConcurrency: 2 }, row!);
+  assert.equal(((await db.query<{ n: number }>(`select count(*)::int as n from packs`)).rows[0]!.n), 0);
+  await db.close();
+});

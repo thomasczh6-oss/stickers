@@ -21,6 +21,11 @@ export async function processJob(deps: WorkerDeps, row: JobRow): Promise<void> {
       photo,
       onProgress: (done, step) => deps.repo.updateProgress(row.id, done, step),
     });
+    // The person may have deleted all their data while this job ran: drop the result instead of keeping it.
+    if (!(await deps.repo.jobExists(row.id))) {
+      await deps.storage.deleteFolder(`packs/${pack.id}`).catch(() => undefined);
+      return;
+    }
     await deps.repo.insertPack(row.device_id, pack);
     await deps.repo.finishJob(row.id, pack.id);
   } catch (e) {

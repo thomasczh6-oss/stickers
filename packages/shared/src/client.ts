@@ -1,10 +1,11 @@
-import type { CreatePackRequest, Job, StickerPack } from "./types";
+import type { CreatePackRequest, FeedbackRequest, Job, StickerPack, Usage } from "./types";
 
 export class ApiRequestError extends Error {
   constructor(
     readonly status: number,
     message: string,
     readonly details?: unknown,
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -25,7 +26,7 @@ export function createApiClient(baseUrl: string, deviceId: string) {
     const text = await res.text();
     const body = text ? JSON.parse(text) : undefined;
     if (!res.ok) {
-      throw new ApiRequestError(res.status, body?.error ?? `HTTP ${res.status}`, body?.details);
+      throw new ApiRequestError(res.status, body?.error ?? `HTTP ${res.status}`, body?.details, body?.code);
     }
     return body as T;
   }
@@ -35,6 +36,11 @@ export function createApiClient(baseUrl: string, deviceId: string) {
     getJob: (jobId: string) => call<{ job: Job }>(`/v1/jobs/${encodeURIComponent(jobId)}`),
     getPack: (packId: string) => call<{ pack: StickerPack }>(`/v1/packs/${encodeURIComponent(packId)}`),
     listMyPacks: () => call<{ packs: StickerPack[] }>("/v1/packs"),
+    /** Free packs left today. */
+    getUsage: () => call<{ usage: Usage }>("/v1/me"),
+    /** Deletes every pack, job and file made with this device id. Cannot be undone. */
+    deleteMyData: () => call<{ deleted: { packs: number; jobs: number } }>("/v1/me", { method: "DELETE" }),
+    sendFeedback: (req: FeedbackRequest) => call<{ ok: true }>("/v1/feedback", { method: "POST", body: JSON.stringify(req) }),
 
     /** Polls a job until it finishes. Calls onUpdate on every poll. */
     async waitForJob(jobId: string, onUpdate?: (job: Job) => void, intervalMs = 2000): Promise<Job> {

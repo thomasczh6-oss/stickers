@@ -18,6 +18,16 @@ export function getDeviceId(): string {
   }
 }
 
+/** After "Delete all my data": forget this browser's id so new packs start a fresh, empty history. */
+export function resetDeviceId() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // Storage blocked: nothing was kept anyway.
+  }
+  client = undefined;
+}
+
 let client: ApiClient | undefined;
 export function api(): ApiClient {
   client ??= createApiClient(API_BASE_URL, getDeviceId());

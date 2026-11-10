@@ -35,6 +35,8 @@ export interface Config {
   worker: { enabled: boolean; jobConcurrency: number; stickerConcurrency: number; pollMs: number };
   /** Max jobs a single device may have queued or running at once. */
   maxActiveJobsPerDevice: number;
+  /** Free packs a device may start per UTC day. 0 means no limit. */
+  freePacksPerDay: number;
   corsOrigins: string[];
   publisherName: string;
 }
@@ -86,6 +88,7 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
       pollMs: int("WORKER_POLL_MS", 1000),
     },
     maxActiveJobsPerDevice: int("MAX_ACTIVE_JOBS_PER_DEVICE", 2),
+    freePacksPerDay: int("FREE_PACKS_PER_DAY", 2),
     corsOrigins: (env("CORS_ORIGINS", "http://localhost:3000") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     publisherName: env("PUBLISHER_NAME", "Stickers AI")!,
     ...overrides,

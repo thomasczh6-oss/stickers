@@ -76,3 +76,12 @@ test("the mobile app config declares the same languages", async () => {
   assert.ok(list, "LOCALES not found in app.config.ts");
   assert.deepEqual(JSON.parse(list), [...LOCALES]);
 });
+
+test("parts splits a template around link placeholders", async () => {
+  const { parts, getMessages } = await import("../src/index");
+  assert.deepEqual(parts("Agree to {terms} and {privacy}."), ["Agree to ", { key: "terms" }, " and ", { key: "privacy" }, "."]);
+  for (const l of LOCALES) {
+    const keys = parts(getMessages(l).legal.agree).flatMap((p) => (typeof p === "string" ? [] : [p.key]));
+    assert.deepEqual(keys.sort(), ["privacy", "terms"], `${l}: legal.agree`);
+  }
+});

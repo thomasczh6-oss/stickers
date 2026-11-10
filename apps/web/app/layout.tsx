@@ -46,6 +46,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href="/my" className="hidden rounded-full px-3 py-2 whitespace-nowrap hover:text-ink md:block">
                 {nav.myPacks}
               </Link>
+              <Link href="/help" className="hidden rounded-full px-3 py-2 whitespace-nowrap hover:text-ink xl:block">
+                {m.settings.help}
+              </Link>
               {/* No room on phones; the footer has the picker too. */}
               <LanguagePicker compact className="hidden sm:inline-flex" />
               <Link href="/create" className="ml-1 rounded-full bg-ink px-4 py-2 font-semibold whitespace-nowrap text-white transition hover:bg-ink/85">
@@ -72,11 +75,28 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/my" className="hover:text-ink">
                   {nav.myPacks}
                 </Link>
+                <Link href="/pricing" className="hover:text-ink">
+                  {m.settings.pricing}
+                </Link>
+                <Link href="/help" className="hover:text-ink">
+                  {m.settings.help}
+                </Link>
+                <Link href="/settings" className="hover:text-ink">
+                  {m.settings.title}
+                </Link>
+              </nav>
+              <nav className="flex flex-wrap gap-x-6 gap-y-2 md:justify-end">
                 <Link href="/privacy" className="hover:text-ink">
                   {nav.privacy}
                 </Link>
                 <Link href="/terms" className="hover:text-ink">
                   {nav.terms}
+                </Link>
+                <Link href="/delete-data" className="hover:text-ink">
+                  {m.data.pageTitle}
+                </Link>
+                <Link href="/imprint" className="hover:text-ink">
+                  {m.legal.imprint}
                 </Link>
               </nav>
               <LanguagePicker />

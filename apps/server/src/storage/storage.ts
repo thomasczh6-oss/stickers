@@ -6,6 +6,8 @@ export interface Storage {
   put(key: string, body: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
+  /** Deletes every file whose key starts with this folder, e.g. "packs/pk_123/". */
+  deleteFolder(prefix: string): Promise<void>;
   /** Public URL clients download the file from. */
   url(key: string): string;
 }
@@ -39,6 +41,10 @@ export class LocalStorage implements Storage {
 
   async delete(key: string) {
     await fs.rm(this.pathFor(key), { force: true });
+  }
+
+  async deleteFolder(prefix: string) {
+    await fs.rm(this.pathFor(prefix), { recursive: true, force: true });
   }
 
   url(key: string) {
@@ -87,6 +93,19 @@ export class S3Storage implements Storage {
     const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
     const client = await this.clientPromise;
     await client.send(new DeleteObjectCommand({ Bucket: this.cfg.bucket, Key: safeKey(key) }));
+  }
+
+  async deleteFolder(prefix: string) {
+    const { ListObjectsV2Command, DeleteObjectsCommand } = await import("@aws-sdk/client-s3");
+    const client = await this.clientPromise;
+    const Prefix = safeKey(prefix).replace(/\/?$/, "/");
+    let ContinuationToken: string | undefined;
+    do {
+      const page = await client.send(new ListObjectsV2Command({ Bucket: this.cfg.bucket, Prefix, ContinuationToken }));
+      const keys = (page.Contents ?? []).flatMap((o) => (o.Key ? [{ Key: o.Key }] : []));
+      if (keys.length) await client.send(new DeleteObjectsCommand({ Bucket: this.cfg.bucket, Delete: { Objects: keys, Quiet: true } }));
+      ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (ContinuationToken);
   }
 
   url(key: string) {

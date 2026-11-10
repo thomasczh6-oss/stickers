@@ -42,3 +42,13 @@ test("pack meta needs 3 stickers with emoji", () => {
   assert.deepEqual(validatePackMeta({ ...base, stickers: [sticker, sticker, sticker] }), []);
   assert.equal(validatePackMeta({ ...base, stickers: [sticker, sticker, { ...sticker, emojis: [] }] }).length, 1);
 });
+
+test("checks feedback messages", async () => {
+  const { parseFeedbackRequest } = await import("../src/index");
+  assert.equal(parseFeedbackRequest({ kind: "bug", message: "it broke" }).ok, true);
+  assert.equal(parseFeedbackRequest({ kind: "bug", message: "x" }).ok, false);
+  assert.equal(parseFeedbackRequest({ kind: "spam", message: "hello there" }).ok, false);
+  assert.equal(parseFeedbackRequest({ kind: "idea", message: "hello there", email: "nope" }).ok, false);
+  const ok = parseFeedbackRequest({ kind: "idea", message: "  more styles  ", email: "a@b.co", platform: "ios", locale: "xx" });
+  assert.ok(ok.ok && ok.value.message === "more styles" && ok.value.locale === undefined && ok.value.platform === "ios");
+});
