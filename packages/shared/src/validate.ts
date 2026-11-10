@@ -137,3 +137,8 @@ export function validateStickerFile(facts: StickerFileFacts, animated: boolean):
   }
   return issues;
 }
+
+/** Values the My packs list accepts; see ListPacksQuery. */
+export const PACK_FILTERS = ["all", "favorites", "animated", "static"] as const;
+export const PACK_SORTS = ["newest", "oldest", "name", "size"] as const;
+export const BULK_ACTIONS: readonly string[] = ["delete", "restore", "favorite", "unfavorite"];

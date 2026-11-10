@@ -1,4 +1,4 @@
-import type { CreatePackRequest, Job, JobStatus, StickerPack } from "@stickers/shared";
+import type { BulkPackAction, CreatePackRequest, Job, JobStatus, PackFilter, PackSort, StickerPack, StyleId } from "@stickers/shared";
 import type { Db } from "./db";
 
 /** The create request as stored: the photo lives in file storage, not in the database. */
@@ -92,29 +92,151 @@ export function createRepo(db: Db) {
       );
     },
 
-    async insertPack(deviceId: string, pack: StickerPack) {
-      await db.query(`insert into packs (id, device_id, data, created_at) values ($1, $2, $3, $4)`, [
-        pack.id,
+    async insertPack(deviceId: string, pack: StickerPack, recipe: { prompt?: string } = {}) {
+      await db.query(
+        `insert into packs (id, device_id, data, created_at, name, prompt, style, animated, sticker_count, favorite, updated_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $4)`,
+        [pack.id, deviceId, JSON.stringify(pack), pack.createdAt, pack.name, recipe.prompt ?? null, pack.style ?? null, pack.animated, pack.stickers.length, pack.favorite ?? false],
+      );
+    },
+
+    /** A pack anyone with its link can open. Packs in the bin are hidden. */
+    async getPack(id: string) {
+      const { rows } = await db.query<PackRow>(`select ${PACK_COLS} from packs where id = $1 and deleted_at is null`, [id]);
+      return rows[0] ? toPack(rows[0]) : undefined;
+    },
+
+    /** The pack if this device made it, including packs in the bin. */
+    async getOwnPack(deviceId: string, id: string) {
+      const { rows } = await db.query<PackRow & { deleted_at: Date | string | null; prompt: string | null }>(
+        `select ${PACK_COLS}, deleted_at, prompt from packs where id = $1 and device_id = $2`,
+        [id, deviceId],
+      );
+      const row = rows[0];
+      return row ? { pack: toPack(row), deleted: row.deleted_at !== null, prompt: row.prompt ?? undefined } : undefined;
+    },
+
+    /** One page of a device's packs, plus per-filter counts for the current search. */
+    async listPacks(deviceId: string, opts: ListOptions = {}) {
+      const limit = Math.min(Math.max(Math.floor(opts.limit ?? 24), 1), 60);
+      const offset = Math.max(Math.floor(opts.offset ?? 0), 0);
+      const params: unknown[] = [deviceId];
+      const where = ["device_id = $1", "deleted_at is null"];
+      const q = opts.q?.trim().toLowerCase();
+      if (q) {
+        params.push(`%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+        where.push(`(lower(name) like $${params.length} or lower(coalesce(prompt, '')) like $${params.length})`);
+      }
+      if (opts.style) {
+        params.push(opts.style);
+        where.push(`style = $${params.length}`);
+      }
+      const base = where.join(" and ");
+      const { rows: countRows } = await db.query<Record<PackFilter, number | string>>(
+        `select count(*)::int as "all",
+           count(*) filter (where favorite)::int as favorites,
+           count(*) filter (where animated)::int as animated,
+           count(*) filter (where not animated)::int as "static"
+         from packs where ${base}`,
+        params,
+      );
+      const c = countRows[0];
+      const counts: Record<PackFilter, number> = {
+        all: Number(c?.all ?? 0),
+        favorites: Number(c?.favorites ?? 0),
+        animated: Number(c?.animated ?? 0),
+        static: Number(c?.static ?? 0),
+      };
+      const filter = opts.filter ?? "all";
+      const { rows } = await db.query<PackRow>(
+        `select ${PACK_COLS} from packs where ${base}${FILTER_SQL[filter]}
+         order by ${SORT_SQL[opts.sort ?? "newest"]} limit ${limit + 1} offset ${offset}`,
+        params,
+      );
+      const more = rows.length > limit;
+      return { packs: rows.slice(0, limit).map(toPack), total: counts[filter], counts, nextOffset: more ? offset + limit : undefined };
+    },
+
+    /** Renames or stars a pack. Renaming bumps imageDataVersion so WhatsApp picks up the new name. */
+    async updatePack(deviceId: string, id: string, patch: { name?: string; favorite?: boolean }) {
+      const own = await this.getOwnPack(deviceId, id);
+      if (!own || own.deleted) return undefined;
+      const pack = { ...own.pack };
+      if (patch.name !== undefined && patch.name !== pack.name) {
+        pack.name = patch.name;
+        pack.imageDataVersion += 1;
+      }
+      if (patch.favorite !== undefined) pack.favorite = patch.favorite;
+      pack.updatedAt = new Date().toISOString();
+      await db.query(`update packs set data = $3, name = $4, favorite = $5, updated_at = $6 where id = $1 and device_id = $2`, [
+        id,
         deviceId,
         JSON.stringify(pack),
-        pack.createdAt,
+        pack.name,
+        pack.favorite ?? false,
+        pack.updatedAt,
       ]);
+      return pack;
     },
 
-    async getPack(id: string) {
-      const { rows } = await db.query<{ data: StickerPack | string }>(`select data from packs where id = $1`, [id]);
-      const d = rows[0]?.data;
-      return d === undefined ? undefined : typeof d === "string" ? (JSON.parse(d) as StickerPack) : d;
-    },
-
-    async listPacks(deviceId: string, limit = 50) {
-      const { rows } = await db.query<{ data: StickerPack | string }>(
-        `select data from packs where device_id = $1 order by created_at desc limit $2`,
-        [deviceId, limit],
+    /** Delete moves packs to the bin (deleted_at); restore takes them out. Returns how many changed. */
+    async bulkUpdate(deviceId: string, ids: string[], action: BulkPackAction) {
+      if (!ids.length) return 0;
+      const set = {
+        delete: "deleted_at = now()",
+        restore: "deleted_at = null",
+        favorite: "favorite = true",
+        unfavorite: "favorite = false",
+      }[action];
+      const live = action === "restore" ? "deleted_at is not null" : "deleted_at is null";
+      const { rows } = await db.query<{ id: string }>(
+        `update packs set ${set}, updated_at = now() where device_id = $1 and id = any($2::text[]) and ${live} returning id`,
+        [deviceId, ids],
       );
-      return rows.map((r) => (typeof r.data === "string" ? (JSON.parse(r.data) as StickerPack) : r.data));
+      return rows.length;
+    },
+
+    /** Removes packs that sat in the bin longer than `days` and returns them, so their files can go too. */
+    async purgeDeletedPacks(days = 30) {
+      const { rows } = await db.query<{ data: StickerPack | string }>(
+        `delete from packs where deleted_at < now() - ($1 || ' days')::interval returning data`,
+        [String(days)],
+      );
+      return rows.map((r) => parseData(r.data));
     },
   };
+}
+
+type ListOptions = { q?: string; filter?: PackFilter; style?: StyleId; sort?: PackSort; offset?: number; limit?: number };
+
+/** Columns kept next to the JSON so lists can search, filter and sort. They win over the JSON copy. */
+const PACK_COLS = "data, name, style, favorite, updated_at";
+type PackRow = { data: StickerPack | string; name: string | null; style: string | null; favorite: boolean | null; updated_at: Date | string | null };
+
+const FILTER_SQL: Record<PackFilter, string> = {
+  all: "",
+  favorites: " and favorite",
+  animated: " and animated",
+  static: " and not animated",
+};
+const SORT_SQL: Record<PackSort, string> = {
+  newest: "created_at desc, id desc",
+  oldest: "created_at asc, id asc",
+  name: "lower(name) asc, created_at desc",
+  size: "sticker_count desc, created_at desc",
+};
+
+function parseData(d: StickerPack | string): StickerPack {
+  return typeof d === "string" ? (JSON.parse(d) as StickerPack) : d;
+}
+
+function toPack(row: PackRow): StickerPack {
+  const pack = { ...parseData(row.data) };
+  if (row.name) pack.name = row.name;
+  if (row.style) pack.style = row.style as StyleId;
+  pack.favorite = Boolean(row.favorite);
+  if (row.updated_at) pack.updatedAt = iso(row.updated_at);
+  return pack;
 }
 
 export type Repo = ReturnType<typeof createRepo>;

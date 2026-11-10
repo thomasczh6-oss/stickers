@@ -1,13 +1,29 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { parseCreatePackRequest, ACTIONS, STYLES } from "@stickers/shared";
+import {
+  ACTIONS,
+  BULK_ACTIONS,
+  CREATE_LIMITS,
+  findStyle,
+  PACK_FILTERS,
+  PACK_SORTS,
+  parseCreatePackRequest,
+  STYLES,
+  toPackIdentifier,
+  type BulkPackAction,
+  type ListPacksResponse,
+  type PackFilter,
+  type PackSort,
+  type StickerPack,
+  type StyleId,
+} from "@stickers/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { nanoid } from "nanoid";
 import type { Config } from "../config";
 import { type Repo, type StoredRequest, toJob } from "../db/repo";
-import { LocalStorage, type Storage } from "../storage/storage";
+import { LocalStorage, packFileKeys, type Storage } from "../storage/storage";
 
 const DEVICE_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const CONTENT_TYPES: Record<string, string> = { ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".json": "application/json" };
@@ -21,7 +37,7 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
     cors({
       origin: (origin) => (cfg.corsOrigins.includes("*") || cfg.corsOrigins.includes(origin) ? origin : null),
       allowHeaders: ["content-type", "x-device-id"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     }),
   );
 
@@ -79,12 +95,105 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
   app.get("/v1/packs", async (c) => {
     const deviceId = c.req.header("x-device-id") ?? "";
     if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
-    return c.json({ packs: await repo.listPacks(deviceId) });
+    const q = c.req.query();
+    const filter = (PACK_FILTERS as readonly string[]).includes(q.filter ?? "") ? (q.filter as PackFilter) : "all";
+    const sort = (PACK_SORTS as readonly string[]).includes(q.sort ?? "") ? (q.sort as PackSort) : "newest";
+    const style = findStyle(q.style ?? "") ? (q.style as StyleId) : undefined;
+    const offset = Number.parseInt(q.cursor ?? "0", 10);
+    const limit = Number.parseInt(q.limit ?? "24", 10);
+    const page = await repo.listPacks(deviceId, {
+      q: q.q?.slice(0, 80),
+      filter,
+      style,
+      sort,
+      offset: Number.isFinite(offset) ? offset : 0,
+      limit: Number.isFinite(limit) ? limit : 24,
+    });
+    const body: ListPacksResponse = { packs: page.packs, total: page.total, counts: page.counts };
+    if (page.nextOffset !== undefined) body.nextCursor = String(page.nextOffset);
+    return c.json(body);
+  });
+
+  app.post("/v1/packs/bulk", async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    const body = (await c.req.json().catch(() => undefined)) as { ids?: unknown; action?: unknown } | undefined;
+    const ids = Array.isArray(body?.ids) ? body.ids.filter((x): x is string => typeof x === "string").slice(0, 200) : [];
+    const action = body?.action as BulkPackAction;
+    if (!ids.length || !BULK_ACTIONS.includes(action)) return c.json({ error: "send ids (1-200) and action: delete, restore, favorite or unfavorite" }, 400);
+    return c.json({ updated: await repo.bulkUpdate(deviceId, ids, action) });
   });
 
   app.get("/v1/packs/:id", async (c) => {
     const pack = await repo.getPack(c.req.param("id"));
     return pack ? c.json({ pack }) : c.json({ error: "pack not found" }, 404);
+  });
+
+  app.patch("/v1/packs/:id", async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    const body = (await c.req.json().catch(() => undefined)) as { name?: unknown; favorite?: unknown } | undefined;
+    const patch: { name?: string; favorite?: boolean } = {};
+    if (body?.name !== undefined) {
+      const name = typeof body.name === "string" ? body.name.trim().replace(/\s+/g, " ") : "";
+      if (!name || name.length > CREATE_LIMITS.PACK_NAME_MAX) return c.json({ error: `name must be 1-${CREATE_LIMITS.PACK_NAME_MAX} characters` }, 400);
+      patch.name = name;
+    }
+    if (body?.favorite !== undefined) {
+      if (typeof body.favorite !== "boolean") return c.json({ error: "favorite must be true or false" }, 400);
+      patch.favorite = body.favorite;
+    }
+    const pack = await repo.updatePack(deviceId, c.req.param("id"), patch);
+    return pack ? c.json({ pack }) : c.json({ error: "pack not found" }, 404);
+  });
+
+  app.delete("/v1/packs/:id", async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    const n = await repo.bulkUpdate(deviceId, [c.req.param("id")], "delete");
+    return n ? c.json({ ok: true }) : c.json({ error: "pack not found" }, 404);
+  });
+
+  app.post("/v1/packs/:id/restore", async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    await repo.bulkUpdate(deviceId, [c.req.param("id")], "restore");
+    const own = await repo.getOwnPack(deviceId, c.req.param("id"));
+    return own && !own.deleted ? c.json({ pack: own.pack }) : c.json({ error: "pack not found" }, 404);
+  });
+
+  /** Copies a pack and its files under a new id, so it can be renamed or added to WhatsApp as a second pack. */
+  app.post("/v1/packs/:id/duplicate", async (c) => {
+    const deviceId = c.req.header("x-device-id") ?? "";
+    if (!DEVICE_ID.test(deviceId)) return c.json({ error: "missing or bad x-device-id header" }, 400);
+    const own = await repo.getOwnPack(deviceId, c.req.param("id"));
+    if (!own || own.deleted) return c.json({ error: "pack not found" }, 404);
+    const body = (await c.req.json().catch(() => ({}))) as { name?: unknown };
+    const src = own.pack;
+    const id = `pk_${nanoid(16)}`;
+    const copy = async (url: string, fileName: string) => {
+      const from = packFileKeys({ ...src, trayIconUrl: url, stickers: [] })[0];
+      const key = `packs/${id}/${fileName}`;
+      if (from) await storage.put(key, await storage.get(from), CONTENT_TYPES[path.extname(fileName)] ?? "application/octet-stream");
+      return storage.url(key);
+    };
+    const fallback = `${src.name} (2)`;
+    const name = (typeof body.name === "string" && body.name.trim() ? body.name.trim() : fallback).slice(0, CREATE_LIMITS.PACK_NAME_MAX);
+    const now = new Date().toISOString();
+    const pack: StickerPack = {
+      ...src,
+      id,
+      identifier: toPackIdentifier(id),
+      name,
+      favorite: false,
+      trayIconUrl: await copy(src.trayIconUrl, src.trayIconFileName),
+      stickers: await Promise.all(src.stickers.map(async (s) => ({ ...s, url: await copy(s.url, s.fileName) }))),
+      imageDataVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await repo.insertPack(deviceId, pack, { prompt: own.prompt });
+    return c.json({ pack }, 201);
   });
 
   // Local development: serve stored files. In production files come from the bucket's CDN.

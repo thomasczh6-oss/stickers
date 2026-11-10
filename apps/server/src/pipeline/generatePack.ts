@@ -131,6 +131,7 @@ export async function generatePack(deps: GenerateDeps, input: GenerateInput): Pr
     stickers: ok.map((r, index) => ({ ...r.sticker, index })),
     imageDataVersion: 1,
     createdAt: new Date().toISOString(),
+    style: request.style,
   };
   const issues = validatePackMeta(pack);
   if (issues.length) throw new Error(`pack breaks WhatsApp rules: ${issues.join("; ")}`);

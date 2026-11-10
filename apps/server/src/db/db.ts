@@ -32,6 +32,22 @@ create table if not exists packs (
   created_at timestamptz not null default now()
 );
 create index if not exists packs_device_idx on packs (device_id, created_at desc);
+
+alter table packs add column if not exists name text;
+alter table packs add column if not exists prompt text;
+alter table packs add column if not exists style text;
+alter table packs add column if not exists animated boolean;
+alter table packs add column if not exists sticker_count integer;
+alter table packs add column if not exists favorite boolean not null default false;
+alter table packs add column if not exists deleted_at timestamptz;
+alter table packs add column if not exists updated_at timestamptz;
+create index if not exists packs_owner_idx on packs (device_id, deleted_at, created_at desc);
+
+update packs set name = data->>'name', animated = (data->>'animated')::boolean,
+  sticker_count = jsonb_array_length(data->'stickers'), updated_at = created_at
+where name is null;
+update packs p set style = j.request->>'style', prompt = j.request->>'prompt'
+from jobs j where j.pack_id = p.id and p.style is null;
 `;
 
 /**
