@@ -1,7 +1,8 @@
 import type { Messages } from "./en";
 
 export const ko: Messages = {
-  styles: { cartoon: "카툰", "3d": "3D", anime: "애니", pixel: "픽셀", clay: "클레이" },
+  styles: { cartoon: "카툰", "3d": "3D", anime: "애니", pixel: "픽셀", clay: "클레이", photo: "실사 사진", caricature: "캐리커처", painted: "페인팅", retro: "레트로 플래시" },
+  styleGroups: { drawn: "일러스트", real: "실사" },
   actions: {
     wave: "안녕!",
     laugh: "ㅋㅋㅋ",
@@ -109,7 +110,7 @@ export const ko: Messages = {
       examplesBody: "Stickers AI로 만든 실제 팩을 모든 스타일로 보여 드려요. 채팅에서처럼 스티커마다 반복 재생돼요.",
       stylesEyebrow: "스타일",
       stylesTitle: "나다운 스타일을 골라 보세요",
-      stylesBody: "같은 아이디어, 다섯 가지 스타일. 언제든 스타일을 바꾸고 원하는 만큼 팩을 만들 수 있어요.",
+      stylesBody: "카툰은 물론 사진, 캐리커처, 페인팅 같은 실사 스타일까지. 언제든 스타일을 바꾸고 원하는 만큼 팩을 만들 수 있어요.",
       styleAlt: "{style} 스타일",
       faqEyebrow: "자주 묻는 질문",
       faqTitle: "궁금한 점을 풀어 드려요",

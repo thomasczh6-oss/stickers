@@ -1,7 +1,8 @@
 import type { Messages } from "./en";
 
 export const de: Messages = {
-  styles: { cartoon: "Comic", "3d": "3D", anime: "Anime", pixel: "Pixel", clay: "Knete" },
+  styles: { cartoon: "Comic", "3d": "3D", anime: "Anime", pixel: "Pixel", clay: "Knete", photo: "Echtes Foto", caricature: "Karikatur", painted: "Gemälde", retro: "Retro-Blitz" },
+  styleGroups: { drawn: "Gezeichnet", real: "Realistisch" },
   actions: {
     wave: "Hallo!",
     laugh: "LOL",
@@ -110,7 +111,7 @@ export const de: Messages = {
       examplesBody: "Echte Packs, gemacht mit Stickers AI, in allen Stilen. Jeder Sticker läuft in Schleife, genau wie in deinen Chats.",
       stylesEyebrow: "Stile",
       stylesTitle: "Finde den Look, der zu dir passt",
-      stylesBody: "Dieselbe Idee, fünf Varianten. Wechsle den Stil, wann du willst, und erstelle so viele Packs, wie du magst.",
+      stylesBody: "Ganz Comic oder ganz echt, als Foto, Karikatur oder Gemälde. Wechsle den Stil, wann du willst, und erstelle so viele Packs, wie du magst.",
       styleAlt: "Stil {style}",
       faqEyebrow: "FAQ",
       faqTitle: "Häufige Fragen",

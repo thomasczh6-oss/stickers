@@ -1,4 +1,4 @@
-import { ACTIONS, STYLES } from "../presets";
+import { ACTIONS, STYLE_GROUPS, STYLES } from "../presets";
 import { DEFAULT_LOCALE, type Locale } from "./locales";
 import { de } from "./messages/de";
 import { en, type Messages } from "./messages/en";
@@ -27,6 +27,11 @@ export function fmt(template: string, vars: Record<string, string | number>): st
 /** A style's name in this language, or its English name for styles not translated yet. */
 export function styleName(m: Messages, id: string): string {
   return m.styles[id] ?? STYLES.find((s) => s.id === id)?.label ?? id;
+}
+
+/** A style group heading ("Illustrated", "Realistic") in this language. */
+export function styleGroupName(m: Messages, id: string): string {
+  return m.styleGroups[id] ?? STYLE_GROUPS.find((g) => g.id === id)?.label ?? id;
 }
 
 /** A reaction's short label in this language. It is also the caption printed on the sticker. */

@@ -1,7 +1,8 @@
 import type { Messages } from "./en";
 
 export const es: Messages = {
-  styles: { cartoon: "Cómic", "3d": "3D", anime: "Anime", pixel: "Píxel", clay: "Plastilina" },
+  styles: { cartoon: "Cómic", "3d": "3D", anime: "Anime", pixel: "Píxel", clay: "Plastilina", photo: "Foto real", caricature: "Caricatura", painted: "Pintura", retro: "Flash retro" },
+  styleGroups: { drawn: "Ilustrado", real: "Realista" },
   actions: {
     wave: "¡Hola!",
     laugh: "JAJAJA",
@@ -110,7 +111,7 @@ export const es: Messages = {
       examplesBody: "Packs reales hechos con Stickers AI, en todos los estilos. Cada sticker se repite en bucle, igual que en tus chats.",
       stylesEyebrow: "Estilos",
       stylesTitle: "Elige el look que va contigo",
-      stylesBody: "La misma idea, de cinco maneras. Cambia de estilo cuando quieras y crea todos los packs que te apetezca.",
+      stylesBody: "Ve de dibujo animado o apuesta por lo real con foto, caricatura o pintura. Cambia de estilo cuando quieras y crea todos los packs que te apetezca.",
       styleAlt: "Estilo {style}",
       faqEyebrow: "Preguntas",
       faqTitle: "Preguntas frecuentes",

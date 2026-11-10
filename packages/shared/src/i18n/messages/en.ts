@@ -10,7 +10,13 @@ export const en = {
     anime: "Anime",
     pixel: "Pixel",
     clay: "Clay",
+    photo: "Real photo",
+    caricature: "Caricature",
+    painted: "Painted",
+    retro: "Retro flash",
   } as Record<string, string>,
+  /** Headings that split the style picker into groups. */
+  styleGroups: { drawn: "Illustrated", real: "Realistic" } as Record<string, string>,
   /**
    * Reaction labels. They are also printed on the stickers as captions, so keep them
    * short: at most about 10 Latin letters or 5 Chinese, Japanese or Korean characters.
@@ -126,7 +132,7 @@ export const en = {
       examplesBody: "Real packs made with Stickers AI, in every style. Each sticker loops, just like in your chats.",
       stylesEyebrow: "Styles",
       stylesTitle: "Pick a look that’s you",
-      stylesBody: "Same idea, five ways. Switch styles any time and make as many packs as you like.",
+      stylesBody: "Go cartoon, or keep it real with photo, caricature and painted looks. Switch styles any time and make as many packs as you like.",
       styleAlt: "{style} style",
       faqEyebrow: "FAQ",
       faqTitle: "Questions, answered",

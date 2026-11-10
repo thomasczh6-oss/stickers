@@ -31,7 +31,10 @@ export class GatewayImageProvider implements ImageProvider {
     if (!res.ok) {
       const msg =
         (typeof data.error === "object" ? data.error?.message : data.error) ?? data.message ?? text.slice(0, 300) ?? `HTTP ${res.status}`;
-      throw new ProviderError(`gateway ${res.status}: ${msg}`, res.status, res.status === 429 || res.status >= 500);
+      // The safety check misfires now and then on ordinary photo-real people (a woman waving).
+      // Image output varies per call, so another try is cheaper than losing the sticker.
+      const safety = res.status === 400 && /safety system|moderation|content policy/i.test(String(msg));
+      throw new ProviderError(`gateway ${res.status}: ${msg}`, res.status, res.status === 429 || res.status >= 500 || safety);
     }
     const item = data.data?.[0];
     if (item?.b64_json) return Buffer.from(item.b64_json, "base64");

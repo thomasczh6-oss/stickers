@@ -2,7 +2,8 @@ import type { Messages } from "./en";
 
 /** European Portuguese, for Portugal. Says "telefone" so it also reads fine in Brazil. */
 export const pt: Messages = {
-  styles: { cartoon: "Desenho", "3d": "3D", anime: "Anime", pixel: "Pixel", clay: "Plasticina" },
+  styles: { cartoon: "Desenho", "3d": "3D", anime: "Anime", pixel: "Pixel", clay: "Plasticina", photo: "Foto real", caricature: "Caricatura", painted: "Pintura", retro: "Flash retro" },
+  styleGroups: { drawn: "Ilustrado", real: "Realista" },
   actions: {
     wave: "Olá!",
     laugh: "Hahaha",
@@ -111,7 +112,7 @@ export const pt: Messages = {
       examplesBody: "Packs reais feitos com o Stickers AI, em todos os estilos. Cada sticker repete em loop, tal como nas suas conversas.",
       stylesEyebrow: "Estilos",
       stylesTitle: "Escolha o visual que tem a ver consigo",
-      stylesBody: "A mesma ideia, de cinco formas. Mude de estilo quando quiser e crie quantos packs quiser.",
+      stylesBody: "Em desenho animado, ou realista com foto, caricatura ou pintura. Mude de estilo quando quiser e crie quantos packs quiser.",
       styleAlt: "Estilo {style}",
       faqEyebrow: "Perguntas",
       faqTitle: "Perguntas frequentes",

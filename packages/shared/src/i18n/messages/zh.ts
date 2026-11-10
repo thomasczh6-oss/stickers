@@ -2,7 +2,8 @@ import type { Messages } from "./en";
 
 /** Simplified Chinese. */
 export const zh: Messages = {
-  styles: { cartoon: "卡通", "3d": "3D", anime: "动漫", pixel: "像素", clay: "黏土" },
+  styles: { cartoon: "卡通", "3d": "3D", anime: "动漫", pixel: "像素", clay: "黏土", photo: "真人照片", caricature: "漫画肖像", painted: "油画", retro: "复古闪光" },
+  styleGroups: { drawn: "插画", real: "写实" },
   actions: {
     wave: "嗨！",
     laugh: "哈哈哈",
@@ -110,7 +111,7 @@ export const zh: Messages = {
       examplesBody: "这些都是用 Stickers AI 做出来的真实贴纸包，涵盖所有风格。每张都会循环播放，和聊天里看到的一样。",
       stylesEyebrow: "风格",
       stylesTitle: "挑一个最像你的风格",
-      stylesBody: "同一个创意，五种画风。随时切换风格，想做多少套就做多少套。",
+      stylesBody: "可以是卡通，也可以是照片、漫画肖像、油画这样的写实风格。随时切换风格，想做多少套就做多少套。",
       styleAlt: "{style}风格",
       faqEyebrow: "常见问题",
       faqTitle: "你可能想问",

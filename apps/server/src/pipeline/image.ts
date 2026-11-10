@@ -162,11 +162,30 @@ const ALPHA_CLEAR = 8;
 /** gpt-image-2.6 draws its characters at alpha 252–254, which would let chat backgrounds show through. */
 const ALPHA_SOLID = 240;
 
-/** Snaps a model-made cut-out to clean alpha: no faint haze around it, no see-through body. */
+/** Faint cut-out pixels (below this alpha) that still carry the hidden screen colour are haze. */
+const HAZE_ALPHA = 200;
+/** How far the screen's main channel must lead the other two for a pixel to count as screen. */
+const HAZE_LEAD = 40;
+
+/**
+ * Snaps a model-made cut-out to clean alpha: no faint haze around it, no see-through body.
+ * The model mattes its own green screen, softly: around hair and confetti it leaves faint
+ * pixels that are still green underneath. Those are dropped, and green spill along the
+ * cut edge is removed like for a keyed image.
+ */
 function tidyAlpha(img: Rgba): Rgba {
   const { data } = img;
+  const bg = hiddenBackground(img);
+  const order = bg ? [0, 1, 2].sort((a, b) => bg[b]! - bg[a]!) : undefined;
+  // Only when the hidden screen is clearly one primary colour, as the prompts ask.
+  const screen = bg && order && bg[order[0]!]! - bg[order[1]!]! >= 80 ? order[0]! : undefined;
   for (let i = 3; i < data.length; i += 4) {
-    const a = data[i]!;
+    let a = data[i]!;
+    if (screen !== undefined && a < HAZE_ALPHA) {
+      const p = i - 3;
+      const others = Math.max(...[0, 1, 2].filter((k) => k !== screen).map((k) => data[p + k]!));
+      if (data[p + screen]! - others > HAZE_LEAD) a = 0;
+    }
     if (a <= ALPHA_CLEAR) {
       data[i - 3] = data[i - 2] = data[i - 1] = data[i] = 0;
     } else if (a >= ALPHA_SOLID) {
@@ -175,7 +194,25 @@ function tidyAlpha(img: Rgba): Rgba {
       data[i] = Math.round(((a - ALPHA_CLEAR) / (ALPHA_SOLID - ALPHA_CLEAR)) * 255);
     }
   }
+  if (bg) despillEdges(img, bg);
   return img;
+}
+
+/** Median colour hidden under the fully transparent pixels of a cut-out (the screen the model matted). */
+function hiddenBackground({ data }: Rgba): [number, number, number] | undefined {
+  const rs: number[] = [];
+  const gs: number[] = [];
+  const bs: number[] = [];
+  // Every 7th pixel is plenty for a median and keeps this cheap on 512px frames.
+  for (let i = 0; i < data.length; i += 28) {
+    if (data[i + 3]! >= 4) continue;
+    rs.push(data[i]!);
+    gs.push(data[i + 1]!);
+    bs.push(data[i + 2]!);
+  }
+  if (rs.length < 100) return undefined;
+  const med = (a: number[]) => a.sort((x, y) => x - y)[a.length >> 1]!;
+  return [med(rs), med(gs), med(bs)];
 }
 
 function borderMedian({ data, width: w, height: h }: Rgba): [number, number, number] {

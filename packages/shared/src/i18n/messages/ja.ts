@@ -1,7 +1,8 @@
 import type { Messages } from "./en";
 
 export const ja: Messages = {
-  styles: { cartoon: "カートゥーン", "3d": "3D", anime: "アニメ", pixel: "ドット絵", clay: "クレイ" },
+  styles: { cartoon: "カートゥーン", "3d": "3D", anime: "アニメ", pixel: "ドット絵", clay: "クレイ", photo: "リアル写真", caricature: "似顔絵", painted: "ペイント", retro: "レトロフラッシュ" },
+  styleGroups: { drawn: "イラスト", real: "リアル" },
   actions: {
     wave: "やあ！",
     laugh: "爆笑",
@@ -109,7 +110,7 @@ export const ja: Messages = {
       examplesBody: "Stickers AI で作った実際のパックを、すべてのスタイルで。チャットと同じように、どのスタンプもループします。",
       stylesEyebrow: "スタイル",
       stylesTitle: "あなたらしい見た目を選ぼう",
-      stylesBody: "同じアイデアを 5 通りに。スタイルはいつでも変えられて、パックはいくつでも作れます。",
+      stylesBody: "イラスト風はもちろん、写真・似顔絵・絵画風のリアルな見た目も。スタイルはいつでも変えられて、パックはいくつでも作れます。",
       styleAlt: "{style}スタイル",
       faqEyebrow: "よくある質問",
       faqTitle: "よくある質問",

@@ -1,6 +1,6 @@
 "use client";
 
-import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLES, styleName, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
@@ -174,23 +174,28 @@ export function CreateForm() {
         </Step>
 
         <Step n={2} title={c.style}>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-            {STYLES.map((s) => {
-              const on = style === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setStyle(s.id)}
-                  aria-pressed={on}
-                  className={`rounded-[20px] border-2 p-1.5 text-left transition ${on ? "border-brand bg-brand-soft" : "border-transparent hover:border-line"}`}
-                >
-                  <img src={`/styles/${s.id}.webp`} alt="" width={160} height={160} className="aspect-square w-full rounded-[14px] bg-paper" />
-                  <span className="mt-1.5 block px-1 pb-0.5 text-sm font-semibold">{styleName(m, s.id)}</span>
-                </button>
-              );
-            })}
-          </div>
+          {STYLE_GROUPS.map((g) => (
+            <div key={g.id} className="mt-1 first:mt-0">
+              <p className="mb-2 text-sm font-semibold text-muted">{styleGroupName(m, g.id)}</p>
+              <div className="mb-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
+                {STYLES.filter((s) => s.group === g.id).map((s) => {
+                  const on = style === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setStyle(s.id)}
+                      aria-pressed={on}
+                      className={`rounded-[20px] border-2 p-1.5 text-left transition ${on ? "border-brand bg-brand-soft" : "border-transparent hover:border-line"}`}
+                    >
+                      <img src={`/styles/${s.id}.webp`} alt="" width={160} height={160} className="aspect-square w-full rounded-[14px] bg-paper" />
+                      <span className="mt-1.5 block px-1 pb-0.5 text-sm font-semibold">{styleName(m, s.id)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </Step>
 
         <Step

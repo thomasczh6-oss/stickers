@@ -1,4 +1,4 @@
-import { fmt, STYLES, styleName } from "@stickers/shared";
+import { fmt, STYLE_GROUPS, STYLES, styleGroupName, styleName } from "@stickers/shared";
 import Link from "next/link";
 import { ExampleGallery } from "@/components/example-gallery";
 import { getI18n } from "@/lib/i18n";
@@ -95,16 +95,21 @@ export default async function Home() {
       {/* Styles */}
       <section className="py-16">
         <SectionTitle eyebrow={h.stylesEyebrow} title={h.stylesTitle} body={h.stylesBody} />
-        <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
-          {STYLES.map((s) => (
-            <figure key={s.id} className="group rounded-[24px] border border-line bg-card p-3 transition hover:-translate-y-1 hover:shadow-[0_16px_40px_-20px_rgba(22,18,29,0.35)]">
-              <div className="rounded-[18px] bg-paper">
-                <img src={`/styles/${s.id}.webp`} alt={fmt(h.styleAlt, { style: styleName(m, s.id) })} width={384} height={384} className="aspect-square w-full" loading="lazy" />
-              </div>
-              <figcaption className="px-1 pt-3 pb-1 font-semibold">{styleName(m, s.id)}</figcaption>
-            </figure>
-          ))}
-        </div>
+        {STYLE_GROUPS.map((g) => (
+          <div key={g.id} className="mt-12">
+            <h3 className="font-display text-xl font-bold tracking-tight">{styleGroupName(m, g.id)}</h3>
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+              {STYLES.filter((s) => s.group === g.id).map((s) => (
+                <figure key={s.id} className="group rounded-[24px] border border-line bg-card p-3 transition hover:-translate-y-1 hover:shadow-[0_16px_40px_-20px_rgba(22,18,29,0.35)]">
+                  <div className="rounded-[18px] bg-paper">
+                    <img src={`/styles/${s.id}.webp`} alt={fmt(h.styleAlt, { style: styleName(m, s.id) })} width={384} height={384} className="aspect-square w-full" loading="lazy" />
+                  </div>
+                  <figcaption className="px-1 pt-3 pb-1 font-semibold">{styleName(m, s.id)}</figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       {/* FAQ */}
