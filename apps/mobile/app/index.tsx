@@ -62,6 +62,9 @@ export default function Home() {
           <View style={s.top}>
             <Image source={require("@/assets/images/icon.png")} style={s.logo} />
             <Text style={s.brand}>Stickers AI</Text>
+            <Pressable onPress={() => router.push("/settings")} hitSlop={12} style={s.settings} accessibilityLabel="Settings">
+              <Text style={s.settingsText}>Settings</Text>
+            </Pressable>
           </View>
 
           <View style={s.hero}>
@@ -81,7 +84,11 @@ export default function Home() {
             <Text style={s.section}>My packs</Text>
             {!!packs?.length && <Text style={s.count}>{packs.length}</Text>}
           </View>
-          {error && <Text style={s.error}>Couldn’t load your packs. Pull down to try again.</Text>}
+          {error && (
+            <Pressable onPress={() => router.push("/settings")}>
+              <Text style={s.error}>Can’t reach the server. Pull down to retry, or tap here to check the server address.</Text>
+            </Pressable>
+          )}
           {packs?.length === 0 && (
             <View style={s.empty}>
               <Image source={require("@/assets/images/styles/cartoon.png")} style={s.emptyImg} />
@@ -121,6 +128,8 @@ const s = StyleSheet.create({
   list: { paddingHorizontal: 20, gap: 12 },
   top: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18 },
   logo: { width: 32, height: 32, borderRadius: 9 },
+  settings: { marginLeft: "auto", borderWidth: 1, borderColor: C.line, backgroundColor: C.card, borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6 },
+  settingsText: { fontFamily: F.medium, fontSize: 13, color: C.ink },
   brand: { fontFamily: F.display, fontSize: 20, color: C.ink, letterSpacing: -0.3 },
   hero: { backgroundColor: C.ink, borderRadius: 32, padding: 24, paddingTop: 20, marginBottom: 28, ...shadow },
   heroStickers: { flexDirection: "row", justifyContent: "center", marginBottom: 8 },

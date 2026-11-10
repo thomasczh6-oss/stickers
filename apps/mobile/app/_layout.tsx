@@ -39,6 +39,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="create" options={{ title: "New pack", presentation: "modal" }} />
+        <Stack.Screen name="settings" options={{ title: "Settings", presentation: "modal" }} />
         <Stack.Screen name="job/[id]" options={{ title: "", headerBackVisible: false, gestureEnabled: false }} />
         <Stack.Screen name="pack/[id]" options={{ title: "" }} />
         <Stack.Screen name="p/[id]" options={{ headerShown: false }} />

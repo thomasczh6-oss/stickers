@@ -48,6 +48,19 @@ cd apps/mobile && npx expo run:android   # 或 npx expo run:ios
 
 不配 `DATABASE_URL` 时用内置的 PGlite，数据在 `apps/server/data/`。不配 `S3_BUCKET` 时文件也存在那里，由 API 的 `/files/*` 提供。
 
+### 安卓测试包（APK）
+
+手机和跑 API 的电脑连同一个 Wi‑Fi。服务器的 `apps/server/.env` 里把 `PUBLIC_BASE_URL` 设成电脑的局域网地址（例如 `http://192.168.1.20:8787`），否则手机拿到的贴纸链接是 localhost。
+
+```bash
+cd apps/mobile
+ALLOW_HTTP=1 EXPO_PUBLIC_API_BASE_URL=http://192.168.1.20:8787 npx expo prebuild --platform android
+cd android && ALLOW_HTTP=1 EXPO_PUBLIC_API_BASE_URL=http://192.168.1.20:8787 ./gradlew assembleRelease
+# 输出 android/app/build/outputs/apk/release/app-release.apk（用 debug 证书签名，只能测试用）
+```
+
+`ALLOW_HTTP=1` 允许 App 走明文 http 连局域网服务器，正式包不要加。服务器地址也可以在 App 首页右上角的 Settings 里改，改完点 Test connection 看能不能连上。需要 JDK 17 和 Android SDK（`ANDROID_HOME`）。
+
 ## 常用命令
 
 ```bash
@@ -58,7 +71,7 @@ pnpm smoke -- --prompt "a corgi in a hoodie" --kind animated   # 真实调用网
 pnpm gen:assets     # 用 image 模型生成 App 图标、启动图、分享图、官网示例贴纸
 ```
 
-`gen:assets` 让模型只画吉祥物和示例角色，背景渐变和文字由代码合成，所以图标风格稳定。仓库里现在的图标和示例是离线 mock 生成的占位图，在能访问网关的环境里跑一次 `pnpm gen:assets` 就会替换成正式素材。
+`gen:assets` 让模型只画吉祥物和示例角色，背景渐变和文字由代码合成，所以图标风格稳定。仓库里的图标、分享图和示例包都是用网关真实生成的；`pnpm gen:assets -- --only samples --samples corgi,cat` 可以只重做指定的示例包。
 
 ## 上线前要定的事
 
