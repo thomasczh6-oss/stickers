@@ -14,6 +14,7 @@ export const zh: DiscoverMessages = {
   by: "来自 {creator}",
   yours: "我的",
   notFound: "这个表情包已不在发现页。",
+  remixedFrom: "基于发现页的表情包制作",
   backToDiscover: "返回发现",
 
   recipeTitle: "同款包含",

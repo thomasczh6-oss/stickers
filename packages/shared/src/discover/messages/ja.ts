@@ -14,6 +14,7 @@ export const ja: DiscoverMessages = {
   by: "{creator} さん",
   yours: "自分の",
   notFound: "このパックは公開されていません。",
+  remixedFrom: "見つけるのパックから作成",
   backToDiscover: "見つけるに戻る",
 
   recipeTitle: "同じになるもの",

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { I18nProvider } from "@/components/i18n";
 import { LanguagePicker } from "@/components/language-picker";
 import { SITE_URL } from "@/lib/env";
+import { getDiscoverI18n } from "@/lib/discover";
 import { getI18n } from "@/lib/i18n";
 import "./globals.css";
 
@@ -24,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = { themeColor: "#fffaf3" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { locale, m } = await getI18n();
+  const { locale, m, d } = await getDiscoverI18n();
   const nav = m.web.nav;
   return (
     <html lang={locale} className={`${inter.variable} ${display.variable}`}>
@@ -42,6 +43,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </Link>
               <Link href="/#faq" className="hidden rounded-full px-3 py-2 whitespace-nowrap hover:text-ink lg:block">
                 {nav.faq}
+              </Link>
+              <Link href="/discover" className="rounded-full px-3 py-2 whitespace-nowrap hover:text-ink">
+                {d.nav}
               </Link>
               <Link href="/my" className="hidden rounded-full px-3 py-2 whitespace-nowrap hover:text-ink md:block">
                 {nav.myPacks}
@@ -68,6 +72,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <nav className="flex flex-wrap gap-x-6 gap-y-2 font-medium">
                 <Link href="/create" className="hover:text-ink">
                   {nav.create}
+                </Link>
+                <Link href="/discover" className="hover:text-ink">
+                  {d.nav}
                 </Link>
                 <Link href="/my" className="hover:text-ink">
                   {nav.myPacks}

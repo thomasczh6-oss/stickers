@@ -14,6 +14,7 @@ export const ko: DiscoverMessages = {
   by: "{creator} 님",
   yours: "내 팩",
   notFound: "이 팩은 더 이상 둘러보기에 없어요.",
+  remixedFrom: "둘러보기 팩으로 만들었어요",
   backToDiscover: "둘러보기로 돌아가기",
 
   recipeTitle: "똑같이 들어가는 것",

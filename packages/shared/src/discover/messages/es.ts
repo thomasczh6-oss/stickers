@@ -14,6 +14,7 @@ export const es: DiscoverMessages = {
   by: "de {creator}",
   yours: "Tuyo",
   notFound: "Este pack ya no está en Descubrir.",
+  remixedFrom: "Hecho a partir de un pack de Descubrir",
   backToDiscover: "Volver a Descubrir",
 
   recipeTitle: "Tendrás lo mismo",

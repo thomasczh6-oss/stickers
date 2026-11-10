@@ -16,6 +16,7 @@ export const en = {
   by: "by {creator}",
   yours: "Yours",
   notFound: "This pack isn’t on Discover anymore.",
+  remixedFrom: "Made from a Discover pack",
   backToDiscover: "Back to Discover",
 
   recipeTitle: "You get the same",

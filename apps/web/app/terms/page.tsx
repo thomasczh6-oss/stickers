@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Terms" };
 // Plain-language draft written for launch in the US and EU. Have it reviewed before release.
 export default function Terms() {
   return (
-    <LegalPage title="Terms" updated="November 9, 2026">
+    <LegalPage title="Terms" updated="November 10, 2026">
       <p>By using Stickers AI you agree to these terms. They’re short, so please read them.</p>
       <h2>Your content</h2>
       <ul>
@@ -27,6 +27,23 @@ export default function Terms() {
         We work hard to keep Stickers AI running, but it’s provided “as is”. We may change or stop features, and we may remove
         content or block use that breaks these terms. To the extent the law allows, we aren’t liable for indirect losses. Nothing
         here limits rights you have under consumer law where you live.
+      </p>
+      <h2 id="community">Discover and community guidelines</h2>
+      <p>
+        You can share a pack to Discover, where anyone can see it and make their own version with their own photo. Your original
+        photo and description are never shown; only the finished stickers, the title you choose, and an anonymous creator label.
+      </p>
+      <ul>
+        <li>Only share packs of yourself, of people who agreed, or of characters you made up.</li>
+        <li>No nudity or sexual content, violence, hate, bullying, harassment, or anything that targets a real person.</li>
+        <li>Don’t impersonate anyone, and don’t post spam, scams or ads.</li>
+        <li>Don’t share anything that shows a minor in a sexual, violent or humiliating way. We report such content to the authorities.</li>
+      </ul>
+      <p>
+        Anyone can report a pack or block its creator from the pack’s page. Reported packs are hidden from the person who reported
+        them right away, and packs with several reports are hidden for everyone until a moderator reviews them. We aim to review
+        reports within 24 hours. We remove content that breaks these guidelines and block creators who keep breaking them. You can
+        remove your own pack from Discover at any time. To appeal a decision, email us at the address below.
       </p>
       <h2>Contact</h2>
       <p>
