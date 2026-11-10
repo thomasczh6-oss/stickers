@@ -1,4 +1,4 @@
-import type { StickerPack } from "@stickers/shared";
+import { fmt, type StickerPack } from "@stickers/shared";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/lib/api";
 import { SITE_URL, STORE_LINKS } from "@/lib/env";
 import { success, tap } from "@/lib/haptics";
+import { useI18n } from "@/lib/i18n";
 import { savePackForWhatsApp } from "@/lib/packFiles";
 import { C, F } from "@/lib/theme";
 import * as WhatsApp from "@/modules/whatsapp-stickers";
@@ -15,6 +16,8 @@ type AddState = { kind: "idle" } | { kind: "saving"; done: number; total: number
 
 export default function PackScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { m } = useI18n();
+  const t = m.app.pack;
   const [pack, setPack] = useState<StickerPack>();
   const [error, setError] = useState<string>();
   const [add, setAdd] = useState<AddState>({ kind: "idle" });
@@ -39,7 +42,8 @@ export default function PackScreen() {
     if (!pack) return;
     tap();
     const url = `${SITE_URL}/p/${pack.id}`;
-    await Share.share(Platform.OS === "ios" ? { url, message: `My sticker pack “${pack.name}”` } : { message: `My sticker pack “${pack.name}”: ${url}` }).catch(() => undefined);
+    const message = fmt(t.shareMessage, { name: pack.name });
+    await Share.share(Platform.OS === "ios" ? { url, message } : { message: `${message}: ${url}` }).catch(() => undefined);
   }
 
   async function addToWhatsApp() {
@@ -47,7 +51,7 @@ export default function PackScreen() {
     tap();
     try {
       if (!(await WhatsApp.isWhatsAppInstalled())) {
-        return setAdd({ kind: "error", message: "WhatsApp isn’t installed on this phone." });
+        return setAdd({ kind: "error", message: t.noWhatsApp });
       }
       setAdd({ kind: "saving", done: 0, total: pack.stickers.length + 1 });
       const dir = await savePackForWhatsApp(pack, (done, total) => setAdd({ kind: "saving", done, total }));
@@ -57,7 +61,7 @@ export default function PackScreen() {
         success();
         setAdd(Platform.OS === "ios" ? { kind: "idle" } : { kind: "added" });
       }
-      else setAdd({ kind: "error", message: res.error ? `WhatsApp said: ${res.error}` : "The pack wasn’t added." });
+      else setAdd({ kind: "error", message: res.error ? fmt(t.whatsAppSaid, { error: res.error }) : t.notAdded });
     } catch (e) {
       setAdd({ kind: "error", message: (e as Error).message });
     }
@@ -66,7 +70,7 @@ export default function PackScreen() {
   if (error)
     return (
       <View style={{ padding: 32, alignItems: "center" }}>
-        <Text style={s.title}>Couldn’t open this pack</Text>
+        <Text style={s.title}>{t.openError}</Text>
         <Text style={[s.muted, { textAlign: "center", marginTop: 8 }]}>{error}</Text>
       </View>
     );
@@ -80,7 +84,7 @@ export default function PackScreen() {
           title: "",
           headerRight: () => (
             <Pressable onPress={share} hitSlop={10}>
-              <Text style={s.share}>Share</Text>
+              <Text style={s.share}>{t.share}</Text>
             </Pressable>
           ),
         }}
@@ -95,7 +99,7 @@ export default function PackScreen() {
               {pack.name}
             </Text>
             <Text style={s.muted}>
-              {pack.stickers.length} {pack.animated ? "animated " : ""}stickers · made with {pack.publisher}
+              {fmt(pack.animated ? m.pack.animatedStickers : m.pack.stickers, { n: pack.stickers.length })} · {fmt(t.madeWith, { publisher: pack.publisher })}
             </Text>
           </View>
         </View>
@@ -113,15 +117,15 @@ export default function PackScreen() {
         {add.kind === "error" && <Text style={s.error}>{add.message}</Text>}
         <Pressable style={[s.button, (busy || add.kind === "added") && s.buttonDim]} disabled={busy || add.kind === "added"} onPress={addToWhatsApp}>
           {busy ? (
-            <Text style={s.buttonText}>{add.kind === "saving" ? `Preparing ${add.done}/${add.total}…` : "Opening WhatsApp…"}</Text>
+            <Text style={s.buttonText}>{add.kind === "saving" ? fmt(t.preparing, { done: add.done, total: add.total }) : t.opening}</Text>
           ) : (
-            <Text style={s.buttonText}>{add.kind === "added" ? "Added to WhatsApp ✓" : "Add to WhatsApp"}</Text>
+            <Text style={s.buttonText}>{add.kind === "added" ? t.added : m.pack.addToWhatsApp}</Text>
           )}
         </Pressable>
         {!WhatsApp.isAvailable ? (
-          <Text style={s.note}>Adding to WhatsApp needs the full app build; it isn’t available in this preview.</Text>
+          <Text style={s.note}>{t.previewOnly}</Text>
         ) : (
-          <Text style={s.note}>{add.kind === "added" ? "Find it in your WhatsApp sticker tray." : "WhatsApp will ask you to confirm."}</Text>
+          <Text style={s.note}>{add.kind === "added" ? t.findInTray : t.confirm}</Text>
         )}
       </View>
     </>

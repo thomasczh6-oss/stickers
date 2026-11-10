@@ -1,3 +1,4 @@
+import type { Locale } from "./i18n";
 import type { ActionId, StyleId } from "./presets";
 
 export type StickerKind = "animated" | "static";
@@ -14,6 +15,8 @@ export interface CreatePackRequest {
   packName?: string;
   /** Print the action label (for example "LOL") on each sticker. */
   captions?: boolean;
+  /** UI language of the person making the pack, e.g. "es". Captions are written in it. */
+  locale?: Locale;
 }
 
 export type JobStatus = "queued" | "running" | "succeeded" | "failed";

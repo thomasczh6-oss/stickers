@@ -1,13 +1,14 @@
 "use client";
 
-import { STYLES } from "@stickers/shared";
+import { fmt, styleName } from "@stickers/shared";
 import { useState } from "react";
+import { useI18n } from "./i18n";
 
 type Pack = { slug: string; title: string; style: string; blurb?: string; stickers: string[] };
 
-const styleLabel = (id: string) => STYLES.find((s) => s.id === id)?.label ?? id;
-
 export function ExampleGallery({ packs }: { packs: Pack[] }) {
+  const { m } = useI18n();
+  const g = m.web.gallery;
   const [active, setActive] = useState(packs[0]?.slug);
   const pack = packs.find((p) => p.slug === active) ?? packs[0];
   if (!pack) return null;
@@ -30,13 +31,13 @@ export function ExampleGallery({ packs }: { packs: Pack[] }) {
         </div>
       </div>
       <p className="mt-5 text-center text-sm text-muted">
-        <span className="mr-2 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand">{styleLabel(pack.style)} style</span>
-        {pack.blurb && <>From the prompt {pack.blurb}</>}
+        <span className="mr-2 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand">{fmt(g.styleTag, { style: styleName(m, pack.style) })}</span>
+        {pack.blurb && fmt(g.fromPrompt, { prompt: pack.blurb })}
       </p>
       <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {pack.stickers.map((f) => (
           <div key={`${pack.slug}/${f}`} className="rounded-[24px] border border-line bg-card p-2 transition hover:-translate-y-1 hover:rotate-[-2deg]">
-            <img src={`/samples/${pack.slug}/${f}`} alt={`${pack.title} sticker`} width={256} height={256} className="aspect-square w-full" loading="lazy" />
+            <img src={`/samples/${pack.slug}/${f}`} alt={fmt(g.stickerAlt, { name: pack.title })} width={256} height={256} className="aspect-square w-full" loading="lazy" />
           </div>
         ))}
       </div>

@@ -1,11 +1,14 @@
 "use client";
 
-import type { StickerPack } from "@stickers/shared";
+import { fmt, type StickerPack } from "@stickers/shared";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n";
 import { api } from "@/lib/api";
 
 export default function MyPacks() {
+  const { locale, m } = useI18n();
+  const t = m.web.my;
   const [packs, setPacks] = useState<StickerPack[]>();
   const [error, setError] = useState<string>();
 
@@ -20,14 +23,14 @@ export default function MyPacks() {
     <div className="pt-10 pb-6 md:pt-14">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl font-extrabold tracking-[-0.02em] md:text-5xl">My packs</h1>
-          <p className="mt-2 text-muted">Packs you made in this browser.</p>
+          <h1 className="font-display text-4xl font-extrabold tracking-[-0.02em] md:text-5xl">{t.title}</h1>
+          <p className="mt-2 text-muted">{t.subtitle}</p>
         </div>
         <Link href="/create" className="rounded-full bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink/85">
-          New pack
+          {t.newPack}
         </Link>
       </div>
-      {error && <p className="mt-8 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">Couldn’t load your packs: {error}</p>}
+      {error && <p className="mt-8 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700">{fmt(t.loadError, { error })}</p>}
       {!packs && !error && (
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((i) => (
@@ -38,10 +41,10 @@ export default function MyPacks() {
       {packs?.length === 0 && (
         <div className="mt-10 grid justify-items-center rounded-[32px] border border-dashed border-line bg-card px-6 py-16 text-center">
           <img src="/styles/cartoon.webp" alt="" width={120} height={120} className="size-28" />
-          <h2 className="mt-4 font-display text-2xl font-bold">No packs yet</h2>
-          <p className="mt-2 max-w-sm text-muted">Your first pack is about a minute away. Start with a selfie, a pet or any idea.</p>
+          <h2 className="mt-4 font-display text-2xl font-bold">{t.emptyTitle}</h2>
+          <p className="mt-2 max-w-sm text-muted">{t.emptyBody}</p>
           <Link href="/create" className="mt-6 rounded-full bg-ink px-6 py-3.5 font-semibold text-white">
-            Make my first pack
+            {t.emptyCta}
           </Link>
         </div>
       )}
@@ -61,7 +64,7 @@ export default function MyPacks() {
               <div className="min-w-0">
                 <div className="truncate font-semibold">{p.name}</div>
                 <div className="text-sm text-muted">
-                  {p.stickers.length} stickers · {new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {fmt(m.pack.stickers, { n: p.stickers.length })} · {new Date(p.createdAt).toLocaleDateString(locale, { month: "short", day: "numeric" })}
                 </div>
               </div>
               <span className="text-muted transition group-hover:translate-x-0.5 group-hover:text-ink">→</span>

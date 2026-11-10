@@ -29,13 +29,13 @@ export async function setServerUrl(url: string): Promise<void> {
   client = undefined;
 }
 
-/** Calls /health on a server; resolves to its description or throws a readable error. */
-export async function checkServer(url: string): Promise<string> {
+/** Calls /health on a server; resolves to the image model it uses (if it says) or throws a readable error. */
+export async function checkServer(url: string): Promise<string | undefined> {
   const res = await fetch(`${url.trim().replace(/\/+$/, "")}/health`, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`The server answered HTTP ${res.status}`);
   const body = (await res.json()) as { ok?: boolean; model?: string };
   if (!body.ok) throw new Error("The server is not ready");
-  return body.model ? `Connected · ${body.model}` : "Connected";
+  return body.model;
 }
 
 export function api(): Promise<ApiClient> {
