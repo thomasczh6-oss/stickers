@@ -74,7 +74,7 @@ export async function inspectSticker(file: Buffer, animated: boolean): Promise<s
   return validateStickerFile({ width: meta.width ?? 0, height, bytes: file.length, frameDelaysMs: delays }, animated);
 }
 
-/** Decodes an animated GIF/WebP (for models that return animation directly, like image 2.6) into PNG frames + delays. */
+/** Decodes an animated GIF/WebP (for models that return animation directly) into PNG frames + delays. */
 export async function decodeAnimation(file: Buffer): Promise<{ frames: Buffer[]; delaysMs: number[] }> {
   const meta = await sharp(file, { animated: true }).metadata();
   const pages = meta.pages ?? 1;

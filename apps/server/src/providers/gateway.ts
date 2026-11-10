@@ -4,7 +4,7 @@ import { type ImageProvider, type ImageRequest, ProviderError } from "./types";
 /**
  * Company AI gateway, OpenAI Images protocol (POST /v1/images/generations and /v1/images/edits).
  * Request shapes match the team's working integration in mvbuddy/server.js.
- * Works for gpt-image-2.5-flare today; switch IMAGE_MODEL when image 2.6 lands.
+ * Works with gpt-image-2.6-flare (default) and gpt-image-2.5-flare; pick one with IMAGE_MODEL.
  */
 export class GatewayImageProvider implements ImageProvider {
   readonly name: string;

@@ -75,7 +75,7 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
         .replace(/\/+$/, "")
         .replace(/\/v1$/, ""),
       apiKey,
-      imageModel: env("IMAGE_MODEL", "gpt-image-2.5-flare")!,
+      imageModel: env("IMAGE_MODEL", "gpt-image-2.6-flare")!,
       quality: quality === "low" || quality === "high" || quality === "auto" ? quality : "medium",
       timeoutMs: int("GATEWAY_TIMEOUT_MS", 240_000),
     },

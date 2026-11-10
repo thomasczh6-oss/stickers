@@ -2,7 +2,7 @@
 
 用 AI 把自拍、宠物或一句描述变成 WhatsApp 动态贴纸包。iOS、Android 和 Web 三端，面向美国和欧洲市场（界面为英文）。
 
-- **apps/server**：API 和出图任务。Node + Hono，Postgres 任务队列，sharp 处理图片。出图走公司 AI 网关（OpenAI Images 协议），现在接的是 `gpt-image-2.5-flare`，image 2.6 上线后改 `IMAGE_MODEL` 即可。
+- **apps/server**：API 和出图任务。Node + Hono，Postgres 任务队列，sharp 处理图片。出图走公司 AI 网关（OpenAI Images 协议），默认用 `gpt-image-2.6-flare`，想换回 2.5 就改 `IMAGE_MODEL=gpt-image-2.5-flare`。2.6 返回的是自带透明背景的图，2.5 返回绿幕图，管线两种都能处理。
 - **apps/web**：Next.js 官网和网页版创建流程。生成贴纸包、看进度、看贴纸包，手机上一键跳 App，电脑上扫码。
 - **apps/mobile**：Expo（SDK 58）App。`modules/whatsapp-stickers` 是本地原生模块，负责“添加到 WhatsApp”。
 - **packages/shared**：三端共用的 WhatsApp 贴纸规格、风格和动作预设、请求校验、API 客户端。
@@ -10,12 +10,12 @@
 ## 一张贴纸是怎么做出来的
 
 1. 先用照片（图生图）或文字（文生图）画一个**角色设定图**，后面每张贴纸都以它为参考，保证是同一个角色。
-2. 每个动作（Hi!、LOL、Love you…）让模型画一张 **2×2 的四帧动作图**，背景是纯绿色。
-3. 服务端切出四帧，去掉绿色背景，四帧用同一个裁剪框对齐，加白色描边和可选的文字，来回播放（1-2-3-4-3-2）。
+2. 每个动作（Hi!、LOL、Love you…）让模型画一张 **3×2 的六帧动作图**（1536×1024）。提示词要求纯绿背景；gpt-image-2.6 会直接给透明背景，也能用。
+3. 服务端切出六帧，去掉背景（绿幕抠图，或直接用模型给的透明通道），按脚的位置对齐，加白色描边和可选的文字，来回播放，第一帧停留稍长。
 4. 压成 512×512 的动态 WebP，并按 WhatsApp 规则自检：动态 ≤500KB、静态 ≤100KB、托盘图 96×96 PNG ≤50KB、每包 3 到 30 张。
 5. 文件存本地磁盘或 S3。用户上传的照片在任务结束后立即删除。
 
-image 2.6 如果能直接输出 GIF，`pipeline/encode.ts` 里的 `decodeAnimation` 已经能把 GIF 拆成帧，直接接到第 3 步。
+gpt-image-2.6-flare 输出的仍是静态 PNG，所以动画还是靠六帧动作图拼出来。以后如果有模型直接输出 GIF 或动态 WebP，`pipeline/encode.ts` 里的 `decodeAnimation` 已经能把它拆成帧，直接接到第 3 步。
 
 ## 添加到 WhatsApp
 

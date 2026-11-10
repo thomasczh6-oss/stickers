@@ -27,6 +27,21 @@ test("background removal keys the border colour and enclosed holes, but keeps ot
   assert.equal(alphaAt(125, 100), 255, "a different green inside the character stays");
 });
 
+test("background removal leaves a model-made cut-out alone, keeping dark outlines", async () => {
+  // What gpt-image-2.6 returns: transparent background, a dark-outlined body at alpha ~253.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+    <circle cx="100" cy="100" r="70" fill="#f0a030" fill-opacity="0.99" stroke="#1a1010" stroke-width="8" stroke-opacity="0.99"/>
+  </svg>`;
+  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  const out = await removeBackground(png);
+  const px = (x: number, y: number) => Array.from(out.data.subarray((y * 200 + x) * 4, (y * 200 + x) * 4 + 4));
+  assert.equal(px(5, 5)[3], 0, "corner stays transparent");
+  assert.equal(px(100, 100)[3], 255, "nearly opaque body becomes fully opaque");
+  const outline = px(100, 30);
+  assert.equal(outline[3], 255, "dark outline is kept");
+  assert.ok(outline[0]! < 60, "outline keeps its dark colour");
+});
+
 test("outline adds a white border around the character", async () => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><circle cx="256" cy="256" r="150" fill="#d03030"/></svg>`;
   const png = await sharp(Buffer.from(svg)).png().toBuffer();

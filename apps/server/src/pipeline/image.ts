@@ -27,9 +27,13 @@ const HOLE_HIGH = 70;
  * The background colour is the median of the image border. Pixels connected to the border
  * are keyed generously; enclosed pixels only when they nearly match the background.
  * Semi-transparent edge pixels are un-mixed from the background to avoid a green fringe.
+ *
+ * Some models (gpt-image-2.6) ignore the green screen and return a cut-out with real
+ * transparency. Keying that by colour would erase the dark outlines, so it is only tidied.
  */
 export async function removeBackground(input: Buffer | Rgba): Promise<Rgba> {
   const img = Buffer.isBuffer(input) ? await toRgba(input) : { ...input, data: Buffer.from(input.data) };
+  if (hasTransparentBorder(img)) return tidyAlpha(img);
   const { data, width: w, height: h } = img;
   const bg = borderMedian(img);
 
@@ -130,6 +134,48 @@ export function despillEdges({ data, width: w, height: h }: Rgba, bg: [number, n
 export async function toRgba(input: Buffer): Promise<Rgba> {
   const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   return { data, width: info.width, height: info.height };
+}
+
+/** True when most of the image border is already transparent, i.e. the model returned a cut-out. */
+function hasTransparentBorder({ data, width: w, height: h }: Rgba): boolean {
+  let clear = 0;
+  let total = 0;
+  const take = (x: number, y: number) => {
+    total++;
+    if (data[(y * w + x) * 4 + 3]! < 16) clear++;
+  };
+  for (let x = 0; x < w; x += 2) {
+    take(x, 0);
+    take(x, h - 1);
+  }
+  for (let y = 0; y < h; y += 2) {
+    take(0, y);
+    take(w - 1, y);
+  }
+  // A green-screen image has no transparent pixels at all, so half the border is a safe bar
+  // even when a waving arm crosses the edge of a cell.
+  return clear / total > 0.5;
+}
+
+/** Below this alpha a pixel of a cut-out is dropped; above ALPHA_SOLID it is made fully opaque. */
+const ALPHA_CLEAR = 8;
+/** gpt-image-2.6 draws its characters at alpha 252–254, which would let chat backgrounds show through. */
+const ALPHA_SOLID = 240;
+
+/** Snaps a model-made cut-out to clean alpha: no faint haze around it, no see-through body. */
+function tidyAlpha(img: Rgba): Rgba {
+  const { data } = img;
+  for (let i = 3; i < data.length; i += 4) {
+    const a = data[i]!;
+    if (a <= ALPHA_CLEAR) {
+      data[i - 3] = data[i - 2] = data[i - 1] = data[i] = 0;
+    } else if (a >= ALPHA_SOLID) {
+      data[i] = 255;
+    } else {
+      data[i] = Math.round(((a - ALPHA_CLEAR) / (ALPHA_SOLID - ALPHA_CLEAR)) * 255);
+    }
+  }
+  return img;
 }
 
 function borderMedian({ data, width: w, height: h }: Rgba): [number, number, number] {
