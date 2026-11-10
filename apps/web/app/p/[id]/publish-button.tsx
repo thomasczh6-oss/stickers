@@ -103,7 +103,7 @@ export function PublishButton({ packId, name }: { packId: string; name: string }
           <label className="mt-4 flex cursor-pointer items-start gap-3 text-sm font-medium">
             <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 size-4 accent-[var(--color-brand)]" />
             <span>
-              {p.agree}.{" "}
+              {p.agree}{" "}·{" "}
               <Link href="/terms#community" target="_blank" className="text-brand underline underline-offset-4">
                 {p.guidelines}
               </Link>
