@@ -1,6 +1,6 @@
 "use client";
 
-import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTION_CATEGORIES, actionCategoryName, ACTIONS, actionName, PACK_THEMES, packThemeName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
@@ -207,23 +207,49 @@ export function CreateForm() {
             </span>
           }
         >
-          <div className="flex flex-wrap gap-2">
-            {ACTIONS.map((a) => {
-              const on = actions.includes(a.id);
+          <p className="text-sm font-semibold text-muted">{c.themes}</p>
+          <p className="mb-2 text-xs text-muted">{c.themesBody}</p>
+          <div className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1">
+            {PACK_THEMES.map((t) => {
+              const on = t.actions.length === actions.length && t.actions.every((id) => actions.includes(id));
               return (
                 <button
+                  key={t.id}
                   type="button"
-                  key={a.id}
-                  onClick={() => toggle(a.id)}
+                  onClick={() => setActions([...t.actions])}
                   aria-pressed={on}
-                  className={`flex items-center gap-2 rounded-full border py-2 pr-4 pl-2.5 text-sm font-semibold transition ${on ? "border-ink bg-ink text-white" : "border-line bg-card hover:border-ink/30"}`}
+                  className={`shrink-0 rounded-2xl border-2 px-3.5 py-2.5 text-left transition ${on ? "border-brand bg-brand-soft" : "border-line bg-card hover:border-ink/30"}`}
                 >
-                  <span className="text-lg leading-none">{a.emojis[0]}</span>
-                  {actionName(m, a.id)}
+                  <span className="block text-base leading-none tracking-tight">
+                    {t.actions.slice(0, 4).map((id) => ACTIONS.find((a) => a.id === id)?.emojis[0]).join(" ")}
+                  </span>
+                  <span className="mt-1.5 block text-sm font-semibold whitespace-nowrap">{packThemeName(m, t.id)}</span>
                 </button>
               );
             })}
           </div>
+          {ACTION_CATEGORIES.map((cat) => (
+            <div key={cat.id} className="mb-4 last:mb-0">
+              <p className="mb-2 text-sm font-semibold text-muted">{actionCategoryName(m, cat.id)}</p>
+              <div className="flex flex-wrap gap-2">
+                {ACTIONS.filter((a) => a.category === cat.id).map((a) => {
+                  const on = actions.includes(a.id);
+                  return (
+                    <button
+                      type="button"
+                      key={a.id}
+                      onClick={() => toggle(a.id)}
+                      aria-pressed={on}
+                      className={`flex items-center gap-2 rounded-full border py-2 pr-4 pl-2.5 text-sm font-semibold transition ${on ? "border-ink bg-ink text-white" : "border-line bg-card hover:border-ink/30"}`}
+                    >
+                      <span className="text-lg leading-none">{a.emojis[0]}</span>
+                      {actionName(m, a.id)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </Step>
 
         <Step n={4} title={c.finishing}>

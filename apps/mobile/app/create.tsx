@@ -1,4 +1,4 @@
-import { ACTIONS, actionName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
+import { ACTION_CATEGORIES, actionCategoryName, ACTIONS, actionName, PACK_THEMES, packThemeName, CREATE_LIMITS, DEFAULT_ACTIONS, fmt, parseCreatePackRequest, STYLE_GROUPS, STYLES, styleGroupName, styleName, type ActionId, type StyleId } from "@stickers/shared";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -24,6 +24,14 @@ const STYLE_IMAGES: Record<StyleId, number> = {
   caricature: require("@/assets/images/styles/caricature.png"),
   painted: require("@/assets/images/styles/painted.png"),
   retro: require("@/assets/images/styles/retro.png"),
+  doodle: require("@/assets/images/styles/doodle.png"),
+  watercolor: require("@/assets/images/styles/watercolor.png"),
+  comic: require("@/assets/images/styles/comic.png"),
+  sketch: require("@/assets/images/styles/sketch.png"),
+  emoji: require("@/assets/images/styles/emoji.png"),
+  plush: require("@/assets/images/styles/plush.png"),
+  toy: require("@/assets/images/styles/toy.png"),
+  papercut: require("@/assets/images/styles/papercut.png"),
 };
 
 /** Square crop from the picker, then at most 1024px as JPEG to keep the upload small. */
@@ -187,17 +195,41 @@ export default function Create() {
         </Section>
 
         <Section n={3} title={c.reactionsShort} aside={fmt(c.reactionsCount, { n: actions.length, max: CREATE_LIMITS.MAX_ACTIONS })}>
-          <View style={s.wrap}>
-            {ACTIONS.map((act) => {
-              const on = actions.includes(act.id);
+          <Text style={s.styleGroup}>{c.themes}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.themes} style={s.stylesScroll}>
+            {PACK_THEMES.map((t) => {
+              const on = t.actions.length === actions.length && t.actions.every((id) => actions.includes(id));
               return (
-                <Pressable key={act.id} onPress={() => toggle(act.id)} style={[s.chip, on && s.chipOn]}>
-                  <Text style={s.emoji}>{act.emojis[0]}</Text>
-                  <Text style={[s.chipText, on && s.chipTextOn]}>{actionName(m, act.id)}</Text>
+                <Pressable
+                  key={t.id}
+                  onPress={() => {
+                    tap();
+                    setActions([...t.actions]);
+                  }}
+                  style={[s.theme, on && s.themeOn]}
+                >
+                  <Text style={s.themeEmojis}>{t.actions.slice(0, 4).map((id) => ACTIONS.find((x) => x.id === id)?.emojis[0]).join(" ")}</Text>
+                  <Text style={s.themeLabel}>{packThemeName(m, t.id)}</Text>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
+          {ACTION_CATEGORIES.map((cat) => (
+            <View key={cat.id}>
+              <Text style={s.styleGroup}>{actionCategoryName(m, cat.id)}</Text>
+              <View style={[s.wrap, { marginBottom: 12 }]}>
+                {ACTIONS.filter((act) => act.category === cat.id).map((act) => {
+                  const on = actions.includes(act.id);
+                  return (
+                    <Pressable key={act.id} onPress={() => toggle(act.id)} style={[s.chip, on && s.chipOn]}>
+                      <Text style={s.emoji}>{act.emojis[0]}</Text>
+                      <Text style={[s.chipText, on && s.chipTextOn]}>{actionName(m, act.id)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
         </Section>
 
         <Section n={4} title={c.finishing}>
@@ -275,6 +307,11 @@ const s = StyleSheet.create({
   styleImg: { width: "100%", aspectRatio: 1, borderRadius: 14, backgroundColor: C.bg },
   styleLabel: { fontFamily: F.semibold, fontSize: 13, color: C.ink, marginTop: 6, marginLeft: 4, marginBottom: 2 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  themes: { gap: 8, paddingRight: 8 },
+  theme: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, backgroundColor: C.card, borderWidth: 2, borderColor: C.line },
+  themeOn: { borderColor: C.brand, backgroundColor: C.brandSoft },
+  themeEmojis: { fontSize: 16 },
+  themeLabel: { fontFamily: F.semibold, fontSize: 13, color: C.ink, marginTop: 4 },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: 10, paddingRight: 14, paddingVertical: 8, borderRadius: 99, backgroundColor: C.card, borderWidth: 1, borderColor: C.line },
   chipOn: { backgroundColor: C.ink, borderColor: C.ink },
   emoji: { fontSize: 17 },

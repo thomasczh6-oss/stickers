@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { parseCreatePackRequest, ACTIONS, STYLES } from "@stickers/shared";
+import { parseCreatePackRequest, ACTION_CATEGORIES, ACTIONS, PACK_THEMES, STYLE_GROUPS, STYLES } from "@stickers/shared";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
@@ -35,8 +35,11 @@ export function createApp(deps: { cfg: Config; repo: Repo; storage: Storage }) {
   /** Styles and actions, so clients can render the picker without shipping a new build. */
   app.get("/v1/presets", (c) =>
     c.json({
-      styles: STYLES.map(({ id, label }) => ({ id, label })),
-      actions: ACTIONS.map(({ id, label, emojis }) => ({ id, label, emojis })),
+      styles: STYLES.map(({ id, label, group }) => ({ id, label, group })),
+      styleGroups: STYLE_GROUPS,
+      actions: ACTIONS.map(({ id, label, emojis, category }) => ({ id, label, emojis, category })),
+      actionCategories: ACTION_CATEGORIES,
+      themes: PACK_THEMES,
     }),
   );
 
