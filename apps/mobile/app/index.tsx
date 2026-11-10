@@ -4,6 +4,7 @@ import { Link, router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DiscoverStrip } from "@/components/DiscoverStrip";
 import { api } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
@@ -82,6 +83,8 @@ export default function Home() {
               <Text style={s.heroButtonText}>{t.create}</Text>
             </Pressable>
           </View>
+
+          <DiscoverStrip />
 
           <View style={s.sectionRow}>
             <Text style={s.section}>{t.myPacks}</Text>
