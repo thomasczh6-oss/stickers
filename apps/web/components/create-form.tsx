@@ -2,8 +2,9 @@
 
 import { ACTIONS, CREATE_LIMITS, DEFAULT_ACTIONS, parseCreatePackRequest, STYLES, type ActionId, type StyleId } from "@stickers/shared";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { SelfieCamera } from "./selfie-camera";
 
 type Photo = { base64: string; mimeType: "image/jpeg"; previewUrl: string };
 type Source = "photo" | "describe";
@@ -25,6 +26,8 @@ async function preparePhoto(file: File): Promise<Photo> {
 export function CreateForm() {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const [camera, setCamera] = useState(false);
   const [source, setSource] = useState<Source>("photo");
   const [prompt, setPrompt] = useState("");
   const [photo, setPhoto] = useState<Photo>();
@@ -50,6 +53,20 @@ export function CreateForm() {
       setError("That photo could not be read. Try a JPEG or PNG.");
     }
   }
+
+  /** Phones open their own camera app; desktops get a live webcam view. */
+  function takeSelfie() {
+    setError(undefined);
+    const phone = window.matchMedia("(pointer: coarse)").matches;
+    // mediaDevices is missing on plain-http pages, so fall back to the file picker there.
+    if (!phone && typeof navigator.mediaDevices?.getUserMedia === "function") setCamera(true);
+    else cameraInput.current?.click();
+  }
+
+  const closeCamera = useCallback((err?: string) => {
+    setCamera(false);
+    if (err) setError(err);
+  }, []);
 
   const usePhoto = source === "photo" && photo;
   const ready = (usePhoto || prompt.trim().length > 0) && actions.length >= CREATE_LIMITS.MIN_ACTIONS;
@@ -94,40 +111,69 @@ export function CreateForm() {
                 onClick={() => setSource(s)}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${source === s ? "bg-ink text-white" : "text-muted hover:text-ink"}`}
               >
-                {s === "photo" ? "Upload a photo" : "Describe it"}
+                {s === "photo" ? "Selfie or photo" : "Describe it"}
               </button>
             ))}
           </div>
 
           {source === "photo" ? (
             <div className="mt-5 grid gap-4 sm:grid-cols-[200px_1fr]">
-              <button
-                type="button"
-                onClick={() => fileInput.current?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragging(true);
-                }}
-                onDragLeave={() => setDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragging(false);
-                  void onPhoto(e.dataTransfer.files?.[0]);
-                }}
-                className={`grid aspect-square place-items-center overflow-hidden rounded-[22px] border-2 border-dashed transition ${dragging ? "border-brand bg-brand-soft" : "border-line bg-paper hover:border-ink/30"}`}
-              >
-                {photo ? (
-                  <img src={photo.previewUrl} alt="Your photo" className="size-full object-cover" />
-                ) : (
-                  <span className="grid justify-items-center gap-2 px-4 text-center text-sm text-muted">
-                    <UploadIcon />
-                    <span className="font-semibold text-ink">Choose a photo</span>
-                    <span>or drag it here</span>
-                  </span>
-                )}
-              </button>
+              {camera ? (
+                <SelfieCamera
+                  onShot={(file) => {
+                    setCamera(false);
+                    void onPhoto(file);
+                  }}
+                  onClose={closeCamera}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    void onPhoto(e.dataTransfer.files?.[0]);
+                  }}
+                  className={`grid aspect-square place-items-center overflow-hidden rounded-[22px] border-2 border-dashed transition ${dragging ? "border-brand bg-brand-soft" : "border-line bg-paper hover:border-ink/30"}`}
+                >
+                  {photo ? (
+                    <img src={photo.previewUrl} alt="Your photo" className="size-full object-cover" />
+                  ) : (
+                    <span className="grid justify-items-center gap-2 px-4 text-center text-sm text-muted">
+                      <UploadIcon />
+                      <span className="font-semibold text-ink">Choose a photo</span>
+                      <span>or drag it here</span>
+                    </span>
+                  )}
+                </button>
+              )}
               <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={(e) => onPhoto(e.target.files?.[0])} />
+              <input ref={cameraInput} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => onPhoto(e.target.files?.[0])} />
               <div className="grid content-start gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={takeSelfie}
+                    disabled={camera}
+                    className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-white transition enabled:hover:-translate-y-0.5 disabled:opacity-40"
+                  >
+                    <CameraIcon />
+                    {photo ? "Retake selfie" : "Take a selfie"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInput.current?.click()}
+                    className="rounded-full border border-line px-4 py-2.5 text-sm font-semibold transition hover:border-ink/30"
+                  >
+                    {photo ? "Choose another" : "Upload a photo"}
+                  </button>
+                </div>
                 <p className="text-sm leading-relaxed text-muted">
                   A clear, front-facing photo works best: one person or pet, good light, face visible. We use it once and delete it.
                 </p>
@@ -270,7 +316,7 @@ export function CreateForm() {
           {busy ? "Starting…" : `Make ${actions.length} stickers`}
         </button>
         <p className="mt-3 text-center text-xs text-muted">
-          {ready ? "Takes about a minute." : source === "photo" ? "Add a photo or switch to Describe it." : "Describe your character to start."}
+          {ready ? "Takes about a minute." : source === "photo" ? "Take a selfie, add a photo, or switch to Describe it." : "Describe your character to start."}
         </p>
       </aside>
     </form>
@@ -318,6 +364,15 @@ function UploadIcon() {
       <rect x="3" y="3" width="18" height="18" rx="5" />
       <circle cx="9" cy="9.5" r="1.8" />
       <path d="M21 15.5l-4.5-4.5L8 19.5" />
+    </svg>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+      <circle cx="12" cy="13" r="3.5" />
     </svg>
   );
 }

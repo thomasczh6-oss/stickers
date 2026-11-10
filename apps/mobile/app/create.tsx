@@ -23,9 +23,22 @@ const STYLE_IMAGES: Record<StyleId, number> = {
 
 const IDEAS = ["a sleepy panda chef", "a grumpy cat barista", "a tiny astronaut hamster"];
 
-/** Square crop from the picker, then at most 1024px as JPEG to keep the upload small. */
-async function pickPhoto(): Promise<Photo | undefined> {
-  const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 1 });
+type PhotoFrom = "camera" | "library";
+
+/**
+ * Square crop from the camera (front-facing, for selfies) or the library,
+ * then at most 1024px as JPEG to keep the upload small.
+ */
+async function pickPhoto(from: PhotoFrom): Promise<Photo | undefined> {
+  const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 1 };
+  let res: ImagePicker.ImagePickerResult;
+  if (from === "camera") {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) throw new Error("Camera access is off. Turn it on in Settings to take a selfie, or choose a photo instead.");
+    res = await ImagePicker.launchCameraAsync({ ...opts, cameraType: ImagePicker.CameraType.front });
+  } else {
+    res = await ImagePicker.launchImageLibraryAsync(opts);
+  }
   const asset = res.canceled ? undefined : res.assets[0];
   if (!asset) return undefined;
   const ctx = ImageManipulator.manipulate(asset.uri);
@@ -51,6 +64,17 @@ export default function Create() {
     tap();
     setActions((cur) => (cur.includes(id) ? cur.filter((a) => a !== id) : cur.length < CREATE_LIMITS.MAX_ACTIONS ? [...cur, id] : cur));
   };
+
+  async function getPhoto(from: PhotoFrom) {
+    tap();
+    setError(undefined);
+    try {
+      const p = await pickPhoto(from);
+      if (p) setPhoto(p);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   const usePhoto = source === "photo" && photo;
   const ready = (!!usePhoto || prompt.trim().length > 0) && actions.length >= CREATE_LIMITS.MIN_ACTIONS;
@@ -97,40 +121,39 @@ export default function Create() {
           </View>
 
           {source === "photo" ? (
-            <View style={s.photoRow}>
-              <Pressable
-                style={s.photo}
-                onPress={async () => {
-                  tap();
-                  try {
-                    const p = await pickPhoto();
-                    if (p) setPhoto(p);
-                  } catch (e) {
-                    setError((e as Error).message);
-                  }
-                }}
-              >
-                {photo ? (
-                  <Image source={photo.uri} style={StyleSheet.absoluteFill} />
-                ) : (
-                  <>
-                    <Text style={s.photoPlus}>+</Text>
-                    <Text style={s.photoText}>Choose photo</Text>
-                  </>
-                )}
-              </Pressable>
-              <View style={{ flex: 1, gap: 8 }}>
-                <Text style={s.hint}>One person or pet, face visible, good light. Used once, then deleted.</Text>
-                <TextInput
-                  style={s.inputSmall}
-                  value={prompt}
-                  onChangeText={setPrompt}
-                  placeholder="Add a detail (optional)"
-                  placeholderTextColor={C.muted}
-                  maxLength={CREATE_LIMITS.PROMPT_MAX}
-                />
+            <>
+              <View style={s.photoRow}>
+                <Pressable style={s.photo} onPress={() => getPhoto("camera")} accessibilityLabel={photo ? "Retake selfie" : "Take a selfie"}>
+                  {photo ? (
+                    <Image source={photo.uri} style={StyleSheet.absoluteFill} />
+                  ) : (
+                    <>
+                      <Text style={s.photoPlus}>📸</Text>
+                      <Text style={s.photoText}>Take a selfie</Text>
+                    </>
+                  )}
+                </Pressable>
+                <View style={{ flex: 1, gap: 8 }}>
+                  <Text style={s.hint}>One person or pet, face visible, good light. Used once, then deleted.</Text>
+                  <TextInput
+                    style={s.inputSmall}
+                    value={prompt}
+                    onChangeText={setPrompt}
+                    placeholder="Add a detail (optional)"
+                    placeholderTextColor={C.muted}
+                    maxLength={CREATE_LIMITS.PROMPT_MAX}
+                  />
+                </View>
               </View>
-            </View>
+              <View style={s.photoButtons}>
+                <Pressable style={[s.photoButton, s.photoButtonMain]} onPress={() => getPhoto("camera")}>
+                  <Text style={[s.photoButtonText, { color: "#fff" }]}>{photo ? "Retake selfie" : "Take a selfie"}</Text>
+                </Pressable>
+                <Pressable style={s.photoButton} onPress={() => getPhoto("library")}>
+                  <Text style={s.photoButtonText}>{photo ? "Choose another" : "Choose photo"}</Text>
+                </Pressable>
+              </View>
+            </>
           ) : (
             <>
               <TextInput
@@ -212,7 +235,7 @@ export default function Create() {
         <Pressable style={({ pressed }) => [s.button, (!ready || busy) && s.buttonOff, pressed && { opacity: 0.85 }]} disabled={busy || !ready} onPress={submit}>
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.buttonText}>Make {actions.length} stickers</Text>}
         </Pressable>
-        <Text style={s.note}>{ready ? "Takes about a minute" : source === "photo" ? "Choose a photo, or describe your character" : "Describe your character to start"}</Text>
+        <Text style={s.note}>{ready ? "Takes about a minute" : source === "photo" ? "Take a selfie or choose a photo" : "Describe your character to start"}</Text>
       </View>
     </View>
   );
@@ -248,8 +271,12 @@ const s = StyleSheet.create({
   segmentTextOn: { color: "#fff" },
   photoRow: { flexDirection: "row", gap: 14 },
   photo: { width: 112, height: 112, borderRadius: 20, backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.line, borderStyle: "dashed", alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  photoPlus: { fontFamily: F.regular, fontSize: 30, color: C.ink, lineHeight: 34 },
+  photoPlus: { fontSize: 28, lineHeight: 34 },
   photoText: { fontFamily: F.semibold, color: C.ink, fontSize: 13 },
+  photoButtons: { flexDirection: "row", gap: 10, marginTop: 14 },
+  photoButton: { flex: 1, paddingVertical: 12, borderRadius: 99, alignItems: "center", borderWidth: 1, borderColor: C.line, backgroundColor: C.card },
+  photoButtonMain: { backgroundColor: C.ink, borderColor: C.ink },
+  photoButtonText: { fontFamily: F.semibold, fontSize: 14, color: C.ink },
   hint: { fontFamily: F.regular, color: C.muted, fontSize: 13, lineHeight: 18 },
   inputSmall: { backgroundColor: C.bg, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: F.regular, color: C.ink, borderWidth: 1, borderColor: C.line },
   input: { minHeight: 96, backgroundColor: C.bg, borderRadius: 16, padding: 14, fontSize: 15, fontFamily: F.regular, color: C.ink, borderWidth: 1, borderColor: C.line, textAlignVertical: "top" },
